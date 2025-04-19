@@ -3,14 +3,14 @@ module github.com/jtamagnan/git-utils/lint
 go 1.24.1
 
 require (
-	github.com/jtamagnan/git-utils/git v0.0.0-00010101000000-000000000000
+	github.com/jtamagnan/git-utils/git v0.0.0-20250419211944-8b9d167dc188
 	github.com/spf13/cobra v1.9.1
 )
 
 require (
-	dario.cat/mergo v1.0.0 // indirect
+	dario.cat/mergo v1.0.1 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
-	github.com/ProtonMail/go-crypto v1.1.6 // indirect
+	github.com/ProtonMail/go-crypto v1.2.0 // indirect
 	github.com/cloudflare/circl v1.6.1 // indirect
 	github.com/cyphar/filepath-securejoin v0.4.1 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
@@ -31,5 +31,3 @@ require (
 	golang.org/x/sys v0.32.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 )
-
-replace github.com/jtamagnan/git-utils/git => ../git
