@@ -22,5 +22,6 @@
     in
       {
         devShell = callPackage ./shell.nix { };
+        packages = packages;
       }));
 }
