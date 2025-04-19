@@ -2,12 +2,12 @@
   mkShell,
   go,
   gopls,
-  gitlint,
+  # gitlint,
 }:
 mkShell {
   packages = [
     go
     gopls
-    gitlint
+    # gitlint
   ];
 }
