@@ -17,6 +17,7 @@
       callPackage = pkgs.lib.callPackageWith (pkgs // packages);
       packages = {
         gitlint = callPackage ./lint { };
+        gitreview = callPackage ./review { };
       };
     in
       {
