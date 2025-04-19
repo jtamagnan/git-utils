@@ -16,7 +16,7 @@
       };
       callPackage = pkgs.lib.callPackageWith (pkgs // packages);
       packages = {
-        gitutils = callPackage ./. { };
+        gitlint = callPackage ./lint { };
       };
     in
       {
