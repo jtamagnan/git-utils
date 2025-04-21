@@ -9,10 +9,11 @@ import (
 
 func parseArgs(cmd *cobra.Command, _ []string) (lint.ParsedArgs, error) {
 	parsedArgs := lint.ParsedArgs{}
+	parsedArgs.Log = true
 
-	// toggle, err := cmd.Flags().GetBool("toggle")
-	// if err != nil { return parsedArgs, err }
-	// parsedArgs.toggle = toggle
+	allFiles, err := cmd.Flags().GetBool("all")
+	if err != nil { return parsedArgs, err }
+	parsedArgs.AllFiles = allFiles
 
 	return parsedArgs, nil
 }
@@ -31,10 +32,11 @@ func generateCommand() (*cobra.Command) {
 		Use:   "git-lint",
 		Short: "Run pre-commit checks in this repositoyr.",
 		RunE: runE,
+		SilenceUsage: true,
 	}
 
-	// rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	// TODO(jat): Learn to use viper
+	rootCmd.Flags().BoolP("all", "a", false, "Run against all files")
+
 	return rootCmd
 }
 
