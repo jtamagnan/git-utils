@@ -3,7 +3,9 @@ module github.com/jtamagnan/git-utils/review
 go 1.24.1
 
 require (
-	github.com/jtamagnan/git-utils/git v0.0.0-20250419211944-8b9d167dc188
+	github.com/google/go-github/v71 v71.0.0
+	github.com/jtamagnan/git-utils/editor v0.0.0-00010101000000-000000000000
+	github.com/jtamagnan/git-utils/git v0.0.0-20250419220653-dccb31d11bfc
 	github.com/jtamagnan/git-utils/lint v0.0.0-20250419220653-dccb31d11bfc
 	github.com/spf13/cobra v1.9.1
 )
@@ -19,6 +21,7 @@ require (
 	github.com/go-git/go-billy/v5 v5.6.2 // indirect
 	github.com/go-git/go-git/v5 v5.16.0 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
+	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
@@ -32,3 +35,5 @@ require (
 	golang.org/x/sys v0.32.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 )
+
+replace github.com/jtamagnan/git-utils/editor => ../editor

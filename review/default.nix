@@ -4,7 +4,7 @@ buildGoModule {
   pname = "git-review";
   src = ./.;
 
-  vendorHash = "sha256-TeT0+wqKMdoHdGOBu+8Q/fGjm7AXxn3xAXUsvTffmmU=";
+  vendorHash = "sha256-17WFu9GA7yh5Fzws4U7xqoC0t2Ox94WrtbDzmialtls=";
 
   postInstall = ''
     mv $out/bin/review $out/bin/git-review
