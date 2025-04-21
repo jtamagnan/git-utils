@@ -44,7 +44,7 @@ func OpenEditor(initialContent string) (string, error) {
 	// Create a temporary file
 	tmpFile, err := os.CreateTemp("", "*.md") // TODO(jat): Would be nice to have a better default name
 	if err != nil { return "", err }
-	defer os.Remove(tmpFile.Name())  // Clean up the file after use
+	// defer os.Remove(tmpFile.Name())  // Don't clean up the file after use in case we want it
 	defer tmpFile.Close()  // Close the file after use
 
 	// Write the initial content to the file
