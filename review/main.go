@@ -10,9 +10,17 @@ import (
 func parseArgs(cmd *cobra.Command, _ []string) (review.ParsedArgs, error) {
 	parsedArgs := review.ParsedArgs{}
 
-	// toggle, err := cmd.Flags().GetBool("toggle")
-	// if err != nil { return parsedArgs, err }
-	// parsedArgs.toggle = toggle
+	noVerify, err := cmd.Flags().GetBool("no-verify")
+	if err != nil { return parsedArgs, err }
+	parsedArgs.NoVerify = noVerify
+
+	openBrowser, err := cmd.Flags().GetBool("open-browser")
+	if err != nil { return parsedArgs, err }
+	parsedArgs.OpenBrowser = openBrowser
+
+	draft, err := cmd.Flags().GetBool("draft")
+	if err != nil { return parsedArgs, err }
+	parsedArgs.Draft = draft
 
 	return parsedArgs, nil
 }
@@ -33,7 +41,9 @@ func generateCommand() (*cobra.Command) {
 		RunE: runE,
 	}
 
-	// rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	rootCmd.Flags().BoolP("no-verify", "v", false, "Skip the pre-push checks")
+	rootCmd.Flags().BoolP("open-browser", "b", true, "Open the pull request in the browser")
+	rootCmd.Flags().BoolP("draft", "d", false, "Create the pull request as a draft")
 	// TODO(jat): Learn to use viper
 	return rootCmd
 }

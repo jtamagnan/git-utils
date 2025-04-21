@@ -1,42 +1,98 @@
 package lint
 
 import (
+	"context"
 	"fmt"
-	"os/exec"
 
+	"github.com/jtamagnan/git-utils/editor"
 	"github.com/jtamagnan/git-utils/git"
-	"github.com/jtamagnan/git-utils/lint"
+	lint "github.com/jtamagnan/git-utils/lint/lib"
+
+	"github.com/google/go-github/v71/github"
 )
 
 type ParsedArgs struct {
+	NoVerify bool
+	OpenBrowser bool
+	Draft bool
 }
 
-func Lint(args ParsedArgs) error {
-	// Get the branch
+
+func getPRDescription() (string, error) {
+	// Get the PR description
+	return editor.OpenEditor("Testing")
+}
+
+func Review(args ParsedArgs) error {
+	// TODO(jat): Support adding labels
+	// TODO(jat): Support getting the description from the commit message
+
+	// Get the current repository
 	repo, err := git.GetRepository()
 	if err != nil { return err }
 
-	branch, err := repo.Head()
-	if err != nil { return err }
-
-	trackingBranch, err := branch.TrackingBranch()
-	if err != nil { return err }
-
-	writeTree, err := repo.WriteTree()
-
-	cmd := exec.Command(
-		"pre-commit",
-		"run",
-		"--color=always",
-		fmt.Sprintf("--from-ref=%s", trackingBranch),
-		fmt.Sprintf("--to-ref=%s", writeTree),
-		"--all-files",
-	)
-	fmt.Println(cmd.String())
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("Error running pre-commit: `%s` \n %s", cmd.String(), out)
+	// Run pre-commit
+	if args.NoVerify {
+		fmt.Println("Skipping pre-commit checks")
+	} else {
+		err = lint.Lint(lint.ParsedArgs{})
+		if err != nil { return err }
 	}
-	fmt.Println(string(out))
+
+	// Decide the upstream to open a pull request against
+	//
+	// TODO(jat): Better upstream branch name:
+	//  - Use a "review-at" commit message
+	//  - Use the current branch name
+	//  - Pick a name using a UUID
+	upstream, err := repo.Remote()
+	if err != nil { return err }
+
+	developerBranch, err := repo.Head()
+	if err != nil { return err }
+	developerBranchName := developerBranch.Name()
+
+	// Push my changes to origin
+	fmt.Println("Pushing to", upstream, developerBranchName.String())
+	repo.ExecGit(
+		"push",
+		"--force",
+		upstream,
+		fmt.Sprintf("HEAD:%s", developerBranchName.String()),
+	)
+
+	// pr description
+	prDescription, err := getPRDescription()
+	if err != nil { return err }
+
+	// Get the default branch
+	upstreamBranch, err := repo.GetDefaultBranch()
+	if err != nil { return err }
+
+	return err
+
+	// Create the PR
+	client := github.NewClient(nil)
+	prRequest := &github.NewPullRequest{
+		Title: 	github.Ptr("My PR"),
+		Head: 	github.Ptr(developerBranchName.Short()),
+		Base: 	github.Ptr(upstreamBranch),
+		Body: 	github.Ptr(prDescription),
+		Draft: 	github.Ptr(args.Draft),
+	}
+	pr, _, err := client.PullRequests.Create(context.Background(), "owner", "repo", prRequest)
+	if err != nil { return err }
+
+	// TODO(jat): Update commit message with the PR URL
+	// TODO(jat): Push again
+
+	if !args.OpenBrowser {
+		url := pr.HTMLURL
+		fmt.Println("Opening PR in browser:", url)
+		err = editor.OpenBrowser(*url)
+		if err != nil { return err }
+	}
+
+	// Exit cleanly
 	return nil
 }
