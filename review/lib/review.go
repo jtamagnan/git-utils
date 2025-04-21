@@ -71,6 +71,7 @@ func Review(args ParsedArgs) error {
 
 	return err
 
+	// TODO(jat): Don't open a PR if there is already an associated PR
 	// Create the PR
 	client := github.NewClient(nil)
 	prRequest := &github.NewPullRequest{
