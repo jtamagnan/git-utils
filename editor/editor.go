@@ -1,8 +1,10 @@
 package editor
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
 
 	"github.com/jtamagnan/git-utils/git"
 )
@@ -59,4 +61,25 @@ func OpenEditor(initialContent string) (string, error) {
 
 	// Return the content as a string
 	return string(content), nil
+}
+
+
+func OpenBrowser(url string) error {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "linux":
+		cmd = exec.Command("xdg-open", url)
+	case "windows":
+		cmd = exec.Command("cmd", "/c", "start", url)
+	case "darwin":
+		cmd = exec.Command("open", url)
+	default:
+		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
+	}
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	err := cmd.Run()
+	if err != nil { return err }
+	return nil
 }
