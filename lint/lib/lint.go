@@ -35,6 +35,7 @@ func Lint(args ParsedArgs) error {
 		cliArgs = append(cliArgs, fmt.Sprintf("--to-ref=%s", writeTree))
 	}
 
+	// TODO(jat): Stream the output
 	cmd := exec.Command(
 		"pre-commit",
 		cliArgs...,
