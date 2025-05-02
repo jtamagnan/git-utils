@@ -9,7 +9,7 @@ import (
 
 func parseArgs(cmd *cobra.Command, _ []string) (lint.ParsedArgs, error) {
 	parsedArgs := lint.ParsedArgs{}
-	parsedArgs.Log = true
+	parsedArgs.Stream = true
 
 	allFiles, err := cmd.Flags().GetBool("all")
 	if err != nil { return parsedArgs, err }

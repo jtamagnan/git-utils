@@ -2,14 +2,15 @@ package lint
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 
 	"github.com/jtamagnan/git-utils/git"
 )
 
 type ParsedArgs struct {
-	Log bool
 	AllFiles bool
+	Stream bool
 }
 
 func Lint(args ParsedArgs) error {
@@ -35,17 +36,25 @@ func Lint(args ParsedArgs) error {
 		cliArgs = append(cliArgs, fmt.Sprintf("--to-ref=%s", writeTree))
 	}
 
-	// TODO(jat): Stream the output
 	cmd := exec.Command(
 		"pre-commit",
 		cliArgs...,
 	)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("Error running pre-commit: `%s` \n%s", cmd.String(), out)
+
+	if args.Stream {
+		fmt.Printf("$ %s:", cmd.String())
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err := cmd.Run()
+		if err != nil {
+			return fmt.Errorf("Error running `%s`", cmd.String())
+		}
+	} else {
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("Error running pre-commit: `%s` \n%s", cmd.String(), out)
+		}
 	}
-	if args.Log {  // Change to stream
-		fmt.Printf("$ %s:\n%s", cmd.String(), string(out))
-	}
+
 	return nil
 }
