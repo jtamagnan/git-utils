@@ -42,7 +42,7 @@ func Lint(args ParsedArgs) error {
 	)
 
 	if args.Stream {
-		fmt.Printf("$ %s:", cmd.String())
+		fmt.Printf("$ %s:\n", cmd.String())
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		err := cmd.Run()
