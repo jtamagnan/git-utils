@@ -69,13 +69,18 @@ func Review(args ParsedArgs) error {
 	upstreamBranch, err := repo.GetDefaultBranch()
 	if err != nil { return err }
 
-	return err
+	// Get commit summaries to use for PR title
+	summaries := repo.RefSummaries(upstreamBranch)
+	if len(summaries) == 0 {
+		return fmt.Errorf("no commits found between %s and HEAD - nothing to create a pull request for", upstreamBranch)
+	}
+	prTitle := summaries[len(summaries)-1]
 
 	// TODO(jat): Don't open a PR if there is already an associated PR
 	// Create the PR
 	client := github.NewClient(nil)
 	prRequest := &github.NewPullRequest{
-		Title: 	github.Ptr("My PR"),
+		Title: 	github.Ptr(prTitle),
 		Head: 	github.Ptr(developerBranchName.Short()),
 		Base: 	github.Ptr(upstreamBranch),
 		Body: 	github.Ptr(prDescription),
