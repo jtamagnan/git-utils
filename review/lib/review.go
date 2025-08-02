@@ -74,7 +74,7 @@ func Review(args ParsedArgs) error {
 	if len(summaries) == 0 {
 		return fmt.Errorf("no commits found between %s and HEAD - nothing to create a pull request for", upstreamBranch)
 	}
-	
+
 	// Use the first element which is the oldest/first commit summary (RefSummaries returns oldest to newest)
 	prTitle := summaries[0]
 
@@ -91,8 +91,19 @@ func Review(args ParsedArgs) error {
 	pr, _, err := client.PullRequests.Create(context.Background(), "owner", "repo", prRequest)
 	if err != nil { return err }
 
-	// TODO(jat): Update commit message with the PR URL
-	// TODO(jat): Push again
+	// Update the oldest commit message with the PR URL
+	err = updateOldestCommitWithPRURL(repo, upstreamBranch, *pr.HTMLURL)
+	if err != nil { return err }
+
+	// Push again with the updated commit message
+	fmt.Println("Pushing updated commit with PR URL to", upstream, developerBranchName.String())
+	_, err = repo.GitExec(
+		"push",
+		"--force",
+		upstream,
+		fmt.Sprintf("HEAD:%s", developerBranchName.String()),
+	)
+	if err != nil { return err }
 
 	if !args.OpenBrowser {
 		url := pr.HTMLURL
