@@ -8,11 +8,11 @@ import (
 )
 
 // GetRemoteBranchFromPR gets the remote branch name from an existing PR
-func GetRemoteBranchFromPR(prNumber int) (string, error) {
+func GetRemoteBranchFromPR(owner, repo string, prNumber int) (string, error) {
 	client := github.NewClient(nil)
 
 	// Get the PR details
-	pr, _, err := client.PullRequests.Get(context.Background(), "owner", "repo", prNumber)
+	pr, _, err := client.PullRequests.Get(context.Background(), owner, repo, prNumber)
 	if err != nil {
 		return "", fmt.Errorf("failed to get PR #%d: %v", prNumber, err)
 	}
@@ -26,11 +26,11 @@ func GetRemoteBranchFromPR(prNumber int) (string, error) {
 }
 
 // GetExistingPR fetches an existing pull request by number
-func GetExistingPR(prNumber int) (*github.PullRequest, error) {
+func GetExistingPR(owner, repo string, prNumber int) (*github.PullRequest, error) {
 	client := github.NewClient(nil)
 
 	// Get the PR
-	pr, _, err := client.PullRequests.Get(context.Background(), "owner", "repo", prNumber)
+	pr, _, err := client.PullRequests.Get(context.Background(), owner, repo, prNumber)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get PR #%d: %v", prNumber, err)
 	}
@@ -39,7 +39,7 @@ func GetExistingPR(prNumber int) (*github.PullRequest, error) {
 }
 
 // CreatePR creates a new pull request
-func CreatePR(title, head, base, body string, draft bool) (*github.PullRequest, error) {
+func CreatePR(owner, repo, title, head, base, body string, draft bool) (*github.PullRequest, error) {
 	client := github.NewClient(nil)
 
 	prRequest := &github.NewPullRequest{
@@ -50,7 +50,7 @@ func CreatePR(title, head, base, body string, draft bool) (*github.PullRequest, 
 		Draft: github.Ptr(draft),
 	}
 
-	pr, _, err := client.PullRequests.Create(context.Background(), "owner", "repo", prRequest)
+	pr, _, err := client.PullRequests.Create(context.Background(), owner, repo, prRequest)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create PR: %v", err)
 	}
