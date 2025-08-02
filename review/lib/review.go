@@ -2,6 +2,7 @@ package review
 
 import (
 	"fmt"
+	"os/exec"
 	"strings"
 
 	"github.com/google/go-github/v71/github"
@@ -187,7 +188,7 @@ func Review(args ParsedArgs) error {
 	// Open browser to the PR if requested
 	//
 	if args.OpenBrowser {
-		_, err = repo.GitExec("open", *githubPR.HTMLURL)
+		err = exec.Command("open", *githubPR.HTMLURL).Run()
 		if err != nil {
 			fmt.Printf("Failed to open browser: %v\n", err)
 		}
