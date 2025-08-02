@@ -2,6 +2,7 @@ package review
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/google/go-github/v71/github"
 	"github.com/jtamagnan/git-utils/editor"
@@ -19,6 +20,16 @@ type ParsedArgs struct {
 	NoVerify    bool
 	OpenBrowser bool
 	Draft       bool
+}
+
+// stripRemotePrefix removes the specific remote prefix from branch names (e.g., "origin/main" -> "main")
+func stripRemotePrefix(branch, remote string) string {
+	prefix := remote + "/"
+	if strings.HasPrefix(branch, prefix) {
+		return strings.TrimPrefix(branch, prefix)
+	}
+	// Return as-is if no remote prefix found
+	return branch
 }
 
 // getPRDescription gets the initial PR description content from templates and opens editor
@@ -141,7 +152,8 @@ func Review(args ParsedArgs) error {
 		//
 		// Open the PR
 		//
-		githubPR, err = githubapi.CreatePR(repoInfo.Owner, repoInfo.Name, prTitle, remoteBranchName, upstreamBranch, prDescription, args.Draft)
+		baseBranch := stripRemotePrefix(upstreamBranch, upstream)
+		githubPR, err = githubapi.CreatePR(repoInfo.Owner, repoInfo.Name, prTitle, remoteBranchName, baseBranch, prDescription, args.Draft)
 		if err != nil { return err }
 
 		//
