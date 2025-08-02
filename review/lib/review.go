@@ -60,7 +60,10 @@ func Review(args ParsedArgs) error {
 
 	if err != nil {
 		// No existing PR found, generate UUID branch name for new PR
-		remoteBranchName = generateUUIDBranchName()
+		remoteBranchName, err = generateUUIDBranchName()
+		if err != nil {
+			return err
+		}
 		isNewPR = true
 		fmt.Printf("No existing PR found, will create new PR with branch: %s\n", remoteBranchName)
 	} else {
