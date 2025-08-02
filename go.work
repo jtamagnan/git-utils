@@ -3,6 +3,8 @@ go 1.24.1
 use (
 	./editor
 	./git
+	./keychain
+	./keychain/lib
 	./lint
 	./review
 )

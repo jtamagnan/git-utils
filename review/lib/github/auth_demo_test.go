@@ -28,7 +28,7 @@ func TestAuthenticationFailureDemo(t *testing.T) {
 		t.Fatal("Expected authentication error when GITHUB_TOKEN is not set, but got success")
 	}
 
-	expectedMessage := "GITHUB_TOKEN environment variable is required"
+	expectedMessage := "GitHub token not found"
 	if !strings.Contains(err.Error(), expectedMessage) {
 		t.Errorf("Expected error message to contain '%s', but got: %v", expectedMessage, err)
 	}

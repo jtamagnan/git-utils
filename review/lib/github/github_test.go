@@ -22,17 +22,17 @@ func TestAuthenticatedClientRequiresToken(t *testing.T) {
 		}
 	}()
 
-	// Test with no token
+	// Test with no token (will try keychain first, then env var)
 	os.Unsetenv("GITHUB_TOKEN")
 	client, err := newAuthenticatedClient()
 	if err == nil {
-		t.Error("Expected error when GITHUB_TOKEN is not set, but got none")
+		t.Error("Expected error when no token is available, but got none")
 	}
 	if client != nil {
-		t.Error("Expected nil client when GITHUB_TOKEN is not set, but got a client")
+		t.Error("Expected nil client when no token is available, but got a client")
 	}
 
-	// Test with token
+	// Test with environment variable token
 	os.Setenv("GITHUB_TOKEN", "test-token")
 	client, err = newAuthenticatedClient()
 	if err != nil {
@@ -40,5 +40,30 @@ func TestAuthenticatedClientRequiresToken(t *testing.T) {
 	}
 	if client == nil {
 		t.Error("Expected client when GITHUB_TOKEN is set, but got nil")
+	}
+}
+
+func TestGitHubTokenIntegration(t *testing.T) {
+	// This test verifies that the github package correctly uses the keychain library
+	// The actual functionality is tested in the keychain package
+
+	// Save original GITHUB_TOKEN
+	originalToken := os.Getenv("GITHUB_TOKEN")
+	defer func() {
+		if originalToken != "" {
+			os.Setenv("GITHUB_TOKEN", originalToken)
+		} else {
+			os.Unsetenv("GITHUB_TOKEN")
+		}
+	}()
+
+	// Test that getGitHubToken delegates to keychain.GetGitHubToken
+	os.Setenv("GITHUB_TOKEN", "test-integration-token")
+	token, err := getGitHubToken()
+	if err != nil {
+		t.Errorf("Expected no error when env token is set, but got: %v", err)
+	}
+	if token != "test-integration-token" {
+		t.Errorf("Expected token 'test-integration-token', but got: %s", token)
 	}
 }
