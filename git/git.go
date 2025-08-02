@@ -111,10 +111,6 @@ func (repo *Repository) GitExec(args ...string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-
-// TODO(jat): Function to get all of "x" from a list of commits
-// between HEAD and the upstream. We'll want to use this when getting
-// the PR url as well as the "global" PR description
 func RefExec[T any](repo *Repository, inner func(*object.Commit) T, parent string) []T {
 	out, err := repo.GitExec(
 		"log",
