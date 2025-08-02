@@ -46,6 +46,40 @@ func (repo *Repository) Remote() (string, error) {
 	return regexp.MustCompile(`refs/remotes/(.*)/.*`).FindStringSubmatch(trackingBranch)[1], nil
 }
 
+// GetRemoteURL gets the URL for the specified remote
+func (repo *Repository) GetRemoteURL(remoteName string) (string, error) {
+	return repo.GitExec("remote", "get-url", remoteName)
+}
+
+// RepositoryInfo contains parsed repository information
+type RepositoryInfo struct {
+	Owner string
+	Name  string
+}
+
+// ParseRepositoryInfo extracts owner and repo name from a GitHub remote URL
+func ParseRepositoryInfo(remoteURL string) (*RepositoryInfo, error) {
+	// Handle HTTPS URLs: https://github.com/owner/repo.git
+	httpsRegex := regexp.MustCompile(`https://github\.com/([^/]+)/([^/]+?)(?:\.git)?/?$`)
+	if matches := httpsRegex.FindStringSubmatch(remoteURL); len(matches) >= 3 {
+		return &RepositoryInfo{
+			Owner: matches[1],
+			Name:  matches[2],
+		}, nil
+	}
+
+	// Handle SSH URLs: git@github.com:owner/repo.git
+	sshRegex := regexp.MustCompile(`git@github\.com:([^/]+)/([^/]+?)(?:\.git)?/?$`)
+	if matches := sshRegex.FindStringSubmatch(remoteURL); len(matches) >= 3 {
+		return &RepositoryInfo{
+			Owner: matches[1],
+			Name:  matches[2],
+		}, nil
+	}
+
+	return nil, fmt.Errorf("unable to parse GitHub repository info from URL: %s", remoteURL)
+}
+
 //
 // Get branch information
 //
