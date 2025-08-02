@@ -6,6 +6,7 @@ require (
 	github.com/google/go-github/v71 v71.0.0
 	github.com/jtamagnan/git-utils/editor v0.0.0
 	github.com/jtamagnan/git-utils/git v0.0.0
+	github.com/jtamagnan/git-utils/keychain/lib v0.0.0
 	github.com/jtamagnan/git-utils/lint/lib v0.0.0
 	github.com/spf13/cobra v1.9.1
 )
@@ -13,6 +14,8 @@ require (
 replace github.com/jtamagnan/git-utils/editor => ../editor
 
 replace github.com/jtamagnan/git-utils/git => ../git
+
+replace github.com/jtamagnan/git-utils/keychain/lib => ../keychain/lib
 
 replace github.com/jtamagnan/git-utils/lint/lib => ../lint/lib
 
