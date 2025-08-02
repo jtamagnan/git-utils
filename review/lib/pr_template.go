@@ -1,8 +1,12 @@
 package lint
 
 import (
+	"embed"
 	"os"
 )
+
+//go:embed default_pull_request_template.md
+var defaultTemplate embed.FS
 
 // findPRTemplate looks for GitHub PR templates in standard locations
 func findPRTemplate() string {
@@ -21,6 +25,12 @@ func findPRTemplate() string {
 		}
 	}
 
-	// No template found, return default content
-	return "## Description\n\nBrief description of changes.\n\n## Changes\n\n- \n\n## Testing\n\n- \n"
+	// No template found, return default content from embedded file
+	content, err := defaultTemplate.ReadFile("default_pull_request_template.md")
+	if err != nil {
+		// This should never happen since the file is embedded at compile time
+		panic("Failed to read embedded default template: " + err.Error())
+	}
+
+	return string(content)
 }
