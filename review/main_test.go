@@ -3,8 +3,56 @@ package main
 import (
 	"testing"
 
+	"github.com/jtamagnan/git-utils/git"
 	review "github.com/jtamagnan/git-utils/review/lib"
 )
+
+func TestGetOpenBrowserDefault(t *testing.T) {
+	// Create a test repository to test git config functionality
+	testRepo := git.NewTestRepo(t)
+	defer testRepo.Cleanup()
+
+	testRepo.InDir(func() {
+		// Test default behavior (should be true when no config is set)
+		defaultValue := getOpenBrowserDefault()
+		if defaultValue != true {
+			t.Errorf("Expected default value to be true when no config is set, got %v", defaultValue)
+		}
+
+		// Test setting config to false
+		_, err := testRepo.Repo.GitExec("config", "review.openBrowser", "false")
+		if err != nil {
+			t.Fatalf("Failed to set git config: %v", err)
+		}
+
+		defaultValue = getOpenBrowserDefault()
+		if defaultValue != false {
+			t.Errorf("Expected default value to be false when config is set to false, got %v", defaultValue)
+		}
+
+		// Test setting config to true
+		_, err = testRepo.Repo.GitExec("config", "review.openBrowser", "true")
+		if err != nil {
+			t.Fatalf("Failed to set git config: %v", err)
+		}
+
+		defaultValue = getOpenBrowserDefault()
+		if defaultValue != true {
+			t.Errorf("Expected default value to be true when config is set to true, got %v", defaultValue)
+		}
+
+		// Test invalid boolean value (should fall back to true)
+		_, err = testRepo.Repo.GitExec("config", "review.openBrowser", "invalid")
+		if err != nil {
+			t.Fatalf("Failed to set git config: %v", err)
+		}
+
+		defaultValue = getOpenBrowserDefault()
+		if defaultValue != true {
+			t.Errorf("Expected default value to be true when config has invalid value, got %v", defaultValue)
+		}
+	})
+}
 
 func TestLabelsParsing(t *testing.T) {
 	tests := []struct {
@@ -139,5 +187,19 @@ func TestCommandFlags(t *testing.T) {
 
 	if labelsFlag.Usage == "" {
 		t.Error("Expected labels flag to have usage text")
+	}
+
+	// Test the open-browser flag
+	openBrowserFlag := cmd.Flags().Lookup("open-browser")
+	if openBrowserFlag == nil {
+		t.Fatal("open-browser flag not found")
+	}
+
+	if openBrowserFlag.Shorthand != "b" {
+		t.Errorf("Expected open-browser flag shorthand to be 'b', got %q", openBrowserFlag.Shorthand)
+	}
+
+	if openBrowserFlag.Usage == "" {
+		t.Error("Expected open-browser flag to have usage text")
 	}
 }

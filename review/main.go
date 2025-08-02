@@ -2,11 +2,27 @@ package main
 
 import (
 	"os"
+	"strconv"
 	"strings"
 
+	"github.com/jtamagnan/git-utils/git"
 	review "github.com/jtamagnan/git-utils/review/lib"
 	"github.com/spf13/cobra"
 )
+
+// getOpenBrowserDefault gets the default value for --open-browser from git config
+func getOpenBrowserDefault() bool {
+	// Try to get the setting from git config
+	if value, err := git.GetConfig("review.openBrowser"); err == nil && value != "" {
+		// Parse boolean value (git config uses "true"/"false" strings)
+		if parsed, err := strconv.ParseBool(value); err == nil {
+			return parsed
+		}
+	}
+
+	// Default to true if not configured or invalid
+	return true
+}
 
 func parseArgs(cmd *cobra.Command, _ []string) (review.ParsedArgs, error) {
 	parsedArgs := review.ParsedArgs{}
@@ -65,8 +81,11 @@ func generateCommand() *cobra.Command {
 		RunE:  runE,
 	}
 
+	// Get the default value for open-browser from git config
+	openBrowserDefault := getOpenBrowserDefault()
+
 	rootCmd.Flags().BoolP("no-verify", "v", false, "Skip the pre-push checks")
-	rootCmd.Flags().BoolP("open-browser", "b", true, "Open the pull request in the browser")
+	rootCmd.Flags().BoolP("open-browser", "b", openBrowserDefault, "Open the pull request in the browser (default from git config review.openBrowser)")
 	rootCmd.Flags().BoolP("draft", "d", false, "Create the pull request as a draft")
 	rootCmd.Flags().StringP("labels", "l", "", "Comma-separated list of labels to add to the PR (e.g., 'bug,enhancement')")
 	// TODO(jat): Learn to use viper
