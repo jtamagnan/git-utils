@@ -1,4 +1,4 @@
-package lint
+package branch
 
 import (
 	"os"
@@ -51,7 +51,7 @@ func TestGenerateUUIDBranchName(t *testing.T) {
 	// Set a known user for consistent testing
 	os.Setenv("USER", "testuser")
 
-	branch1, err := generateUUIDBranchName()
+	branch1, err := GenerateUUIDBranchName()
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -78,7 +78,7 @@ func TestGenerateUUIDBranchNameWithDifferentUsers(t *testing.T) {
 
 	for _, user := range users {
 		os.Setenv("USER", user)
-		branch, err := generateUUIDBranchName()
+		branch, err := GenerateUUIDBranchName()
 		if err != nil {
 			t.Fatalf("Expected no error for user %s, got: %v", user, err)
 		}
@@ -112,7 +112,7 @@ func TestGenerateUUIDBranchNameUniqueness(t *testing.T) {
 	// Generate multiple UUIDs and verify they're unique
 	generatedUUIDs := make(map[string]bool)
 	for i := 0; i < 1000; i++ {
-		uuid, err := generateUUIDBranchName()
+		uuid, err := GenerateUUIDBranchName()
 		if err != nil {
 			t.Fatalf("Expected no error on iteration %d, got: %v", i, err)
 		}
@@ -132,7 +132,7 @@ func TestGenerateUUIDBranchNameError(t *testing.T) {
 	os.Setenv("USER", "")
 
 	// Should return error when no user identifier is available
-	branch, err := generateUUIDBranchName()
+	branch, err := GenerateUUIDBranchName()
 	if err == nil {
 		t.Errorf("Expected error when no user identifier available, but got branch: %s", branch)
 	}

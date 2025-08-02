@@ -1,4 +1,4 @@
-package lint
+package pr
 
 import (
 	"testing"
@@ -24,7 +24,7 @@ func TestDetectExistingPR(t *testing.T) {
 		testRepo.RefreshRepo()
 
 		// Should find no existing PR (expect error)
-		prNumber, err := detectExistingPR(testRepo.Repo, "main")
+		prNumber, err := DetectExistingPR(testRepo.Repo, "main")
 		if err == nil {
 			t.Fatalf("Expected error when no PR found, but got prNumber: %d", prNumber)
 		}
@@ -38,7 +38,7 @@ func TestDetectExistingPR(t *testing.T) {
 		testRepo.RefreshRepo()
 
 		// Should now find the existing PR
-		prNumber, err = detectExistingPR(testRepo.Repo, "main")
+		prNumber, err = DetectExistingPR(testRepo.Repo, "main")
 		if err != nil {
 			t.Fatalf("Failed to detect existing PR: %v", err)
 		}
@@ -65,7 +65,7 @@ func TestDetectExistingPRInOldestCommit(t *testing.T) {
 		testRepo.RefreshRepo()
 
 		// Should find the PR from the oldest commit
-		prNumber, err := detectExistingPR(testRepo.Repo, "main")
+		prNumber, err := DetectExistingPR(testRepo.Repo, "main")
 		if err != nil {
 			t.Fatalf("Failed to detect existing PR: %v", err)
 		}
@@ -89,7 +89,7 @@ func TestDetectExistingPRNoCommits(t *testing.T) {
 		testRepo.RefreshRepo()
 
 		// Should find no existing PR when there are no commits (expect error)
-		prNumber, err := detectExistingPR(testRepo.Repo, "main")
+		prNumber, err := DetectExistingPR(testRepo.Repo, "main")
 		if err == nil {
 			t.Fatalf("Expected error when no commits found, but got prNumber: %d", prNumber)
 		}

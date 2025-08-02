@@ -1,4 +1,4 @@
-package lint
+package branch
 
 import (
 	"crypto/rand"
@@ -24,8 +24,8 @@ func getUserIdentifier() (string, error) {
 	return "", fmt.Errorf("no user identifier found: set 'git config review.user-identifier <name>' or ensure USER environment variable is set")
 }
 
-// generateUUIDBranchName creates a user-prefixed UUID-based branch name for new PRs
-func generateUUIDBranchName() (string, error) {
+// GenerateUUIDBranchName creates a user-prefixed UUID-based branch name for new PRs
+func GenerateUUIDBranchName() (string, error) {
 	// Get user identifier
 	userID, err := getUserIdentifier()
 	if err != nil {
