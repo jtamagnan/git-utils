@@ -54,7 +54,7 @@ func Review(args ParsedArgs) error {
 
 	// Push my changes to origin
 	fmt.Println("Pushing to", upstream, developerBranchName.String())
-	repo.ExecGit(
+	repo.GitExec(
 		"push",
 		"--force",
 		upstream,
