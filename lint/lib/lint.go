@@ -10,7 +10,7 @@ import (
 
 type ParsedArgs struct {
 	AllFiles bool
-	Stream bool
+	Stream   bool
 }
 
 func Lint(args ParsedArgs) error {
@@ -18,13 +18,22 @@ func Lint(args ParsedArgs) error {
 
 	// Get the upstream branch that we're tracking. TODO(jat): Consider using a merge-base
 	repo, err := git.GetRepository()
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	branch, err := repo.Head()
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	upstreamBranch, err := branch.TrackingBranch()
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	writeTree, err := repo.WriteTree()
+	if err != nil {
+		return err
+	}
 
 	var cliArgs []string
 	cliArgs = append(cliArgs, "run")
@@ -47,12 +56,12 @@ func Lint(args ParsedArgs) error {
 		cmd.Stderr = os.Stderr
 		err := cmd.Run()
 		if err != nil {
-			return fmt.Errorf("Error running `%s`", cmd.String())
+			return fmt.Errorf("error running `%s`", cmd.String())
 		}
 	} else {
 		out, err := cmd.CombinedOutput()
 		if err != nil {
-			return fmt.Errorf("Error running pre-commit: `%s` \n%s", cmd.String(), out)
+			return fmt.Errorf("error running pre-commit: `%s` \n%s", cmd.String(), out)
 		}
 	}
 

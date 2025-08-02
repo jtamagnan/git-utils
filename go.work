@@ -6,5 +6,6 @@ use (
 	./keychain
 	./keychain/lib
 	./lint
+	./lint/lib
 	./review
 )
