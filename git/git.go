@@ -128,12 +128,13 @@ func (repo *Repository) RefExec(inner func(), parent string) []any {
 	var results []any
 	for _, line := range lines {
 		if strings.TrimSpace(line) != "" {
-			ref, err := repo.Repository.Reference(plumbing.NewHash(line), true)
+			hash := plumbing.NewHash(line)
+			commit, err := repo.Repository.CommitObject(hash)
 			if err != nil {
-				fmt.Printf("Error getting reference: %v\n", err)
+				fmt.Printf("Error getting commit: %v\n", err)
 				continue
 			}
-			results = append(results, &Reference{ref, repo})
+			results = append(results, commit)
 			inner()
 		}
 	}
