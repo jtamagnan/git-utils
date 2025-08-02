@@ -6,6 +6,8 @@ buildGoModule {
 
   vendorHash = "sha256-LI/OTwtHOh7HQ7z/xUCBzkA1j0odgb1PWUfJEd0gWA0=";
 
+  subPackages = [ "." ];
+
   postInstall = ''
     mv $out/bin/keychain $out/bin/git-keychain
   '';
