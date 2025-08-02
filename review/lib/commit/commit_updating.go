@@ -2,6 +2,7 @@ package commit
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/jtamagnan/git-utils/git"
@@ -47,14 +48,28 @@ func UpdateOldestCommitWithPRURL(repo *git.Repository, upstreamBranch, prURL str
 		return fmt.Errorf("error getting current commit message: %v", err)
 	}
 
-	// Check if PR URL is already in the message to avoid duplicates
-	if strings.Contains(currentMessage, "PR URL:") {
-		fmt.Println("PR URL already present in commit message, skipping update")
+	// Remove any existing PR URL lines from the commit message
+	prURLRegex := regexp.MustCompile(`(?m)^\s*PR URL:\s*https://github\.com/[^\s]+\s*$`)
+	cleanedMessage := prURLRegex.ReplaceAllString(currentMessage, "")
+
+	// Clean up any extra newlines left behind
+	cleanedMessage = regexp.MustCompile(`\n\n+`).ReplaceAllString(cleanedMessage, "\n\n")
+	cleanedMessage = strings.TrimSpace(cleanedMessage)
+
+	// Add the new PR URL to the commit message
+	updatedMessage := cleanedMessage + "\n\nPR URL: " + prURL
+
+	// Check if we actually made a change
+	if updatedMessage == currentMessage {
+		fmt.Println("PR URL already up to date in commit message")
 		return nil
 	}
 
-	// Add PR URL to the commit message
-	updatedMessage := strings.TrimSpace(currentMessage) + "\n\nPR URL: " + prURL
+	if strings.Contains(currentMessage, "PR URL:") {
+		fmt.Printf("Replacing existing PR URL with new one: %s\n", prURL)
+	} else {
+		fmt.Printf("Adding PR URL to commit message: %s\n", prURL)
+	}
 
 	// Update the commit message
 	err = updateCommitMessage(repo, upstreamBranch, oldestCommitHash, updatedMessage)
