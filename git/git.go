@@ -8,6 +8,7 @@ import (
 
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
 type Repository struct {
@@ -114,7 +115,7 @@ func (repo *Repository) GitExec(args ...string) (string, error) {
 // TODO(jat): Function to get all of "x" from a list of commits
 // between HEAD and the upstream. We'll want to use this when getting
 // the PR url as well as the "global" PR description
-func (repo *Repository) RefExec(inner func(), parent string) []any {
+func RefExec[T any](repo *Repository, inner func(*object.Commit) T, parent string) []T {
 	out, err := repo.GitExec(
 		"log",
 		fmt.Sprintf("%s..HEAD", parent),
@@ -126,7 +127,7 @@ func (repo *Repository) RefExec(inner func(), parent string) []any {
 		return nil
 	}
 	lines := strings.Split(out, "\n")
-	var results []any
+	var results []T
 	for _, line := range lines {
 		if strings.TrimSpace(line) != "" {
 			hash := plumbing.NewHash(line)
@@ -135,8 +136,8 @@ func (repo *Repository) RefExec(inner func(), parent string) []any {
 				fmt.Printf("Error getting commit: %v\n", err)
 				continue
 			}
-			results = append(results, commit)
-			inner()
+			result := inner(commit)
+			results = append(results, result)
 		}
 	}
 	return results
