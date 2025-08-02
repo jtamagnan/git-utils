@@ -119,6 +119,7 @@ func (repo *Repository) RefExec(inner func(), parent string) []any {
 		"log",
 		fmt.Sprintf("%s..HEAD", parent),
 		"--pretty=format:%H",
+		"--reverse",
 	)
 	if err != nil {
 		fmt.Printf("Error getting ref exec: %v\n", err)
@@ -146,6 +147,7 @@ func (repo *Repository) RefSummaries(parent string) []string {
 		"log",
 		fmt.Sprintf("%s..HEAD", parent),
 		"--pretty=format:%s",
+		"--reverse",
 	)
 	if err != nil {
 		fmt.Printf("Error getting summary on refs: %v\n", err)
