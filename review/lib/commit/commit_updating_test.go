@@ -1,4 +1,4 @@
-package lint
+package commit
 
 import (
 	"strings"
@@ -27,7 +27,7 @@ func TestUpdateCommitMessageWithPRURL(t *testing.T) {
 
 		// Test updating the oldest commit with PR URL
 		prURL := "https://github.com/owner/repo/pull/123"
-		err := updateOldestCommitWithPRURL(testRepo.Repo, "main", prURL)
+		err := UpdateOldestCommitWithPRURL(testRepo.Repo, "main", prURL)
 		if err != nil {
 			t.Fatalf("Failed to update commit with PR URL: %v", err)
 		}
@@ -92,7 +92,7 @@ func TestUpdateCommitMessageSingleCommit(t *testing.T) {
 
 		// Test updating the single commit with PR URL
 		prURL := "https://github.com/owner/repo/pull/456"
-		err := updateOldestCommitWithPRURL(testRepo.Repo, "main", prURL)
+		err := UpdateOldestCommitWithPRURL(testRepo.Repo, "main", prURL)
 		if err != nil {
 			t.Fatalf("Failed to update single commit with PR URL: %v", err)
 		}
@@ -138,13 +138,13 @@ func TestUpdateCommitMessageNoDuplicates(t *testing.T) {
 		prURL := "https://github.com/owner/repo/pull/789"
 
 		// Update once
-		err := updateOldestCommitWithPRURL(testRepo.Repo, "main", prURL)
+		err := UpdateOldestCommitWithPRURL(testRepo.Repo, "main", prURL)
 		if err != nil {
 			t.Fatalf("Failed to update commit with PR URL: %v", err)
 		}
 
 		// Try to update again - should skip due to duplicate detection
-		err = updateOldestCommitWithPRURL(testRepo.Repo, "main", prURL)
+		err = UpdateOldestCommitWithPRURL(testRepo.Repo, "main", prURL)
 		if err != nil {
 			t.Fatalf("Failed on second update attempt: %v", err)
 		}

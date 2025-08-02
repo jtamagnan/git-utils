@@ -1,4 +1,4 @@
-package lint
+package commit
 
 import (
 	"fmt"
@@ -7,8 +7,8 @@ import (
 	"github.com/jtamagnan/git-utils/git"
 )
 
-// updateOldestCommitWithPRURL updates the oldest commit message to include the PR URL
-func updateOldestCommitWithPRURL(repo *git.Repository, upstreamBranch, prURL string) error {
+// UpdateOldestCommitWithPRURL updates the oldest commit message to include the PR URL
+func UpdateOldestCommitWithPRURL(repo *git.Repository, upstreamBranch, prURL string) error {
 	// Get all commit summaries to find the oldest one
 	summaries := repo.RefSummaries(upstreamBranch)
 	if len(summaries) == 0 {

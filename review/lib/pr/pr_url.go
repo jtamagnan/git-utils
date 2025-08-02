@@ -1,4 +1,4 @@
-package lint
+package pr
 
 import (
 	"context"
@@ -11,8 +11,8 @@ import (
 	"github.com/jtamagnan/git-utils/git"
 )
 
-// getRemoteBranchFromPR gets the remote branch name from an existing PR
-func getRemoteBranchFromPR(prNumber int) (string, error) {
+// GetRemoteBranchFromPR gets the remote branch name from an existing PR
+func GetRemoteBranchFromPR(prNumber int) (string, error) {
 	client := github.NewClient(nil)
 
 	// Get the PR details
@@ -29,9 +29,9 @@ func getRemoteBranchFromPR(prNumber int) (string, error) {
 	return "", fmt.Errorf("PR #%d has no head branch information", prNumber)
 }
 
-// detectExistingPR checks all commit messages in the current branch for PR URLs
+// DetectExistingPR checks all commit messages in the current branch for PR URLs
 // Returns the PR number if found, or an error if no PR URL is detected
-func detectExistingPR(repo *git.Repository, upstreamBranch string) (int, error) {
+func DetectExistingPR(repo *git.Repository, upstreamBranch string) (int, error) {
 	// Use RefExec to collect PR numbers from all commits (0 if no PR found in that commit)
 	prNumbers := git.RefExec(repo, func(commit *object.Commit) int {
 		// Extract PR number from this commit's message
@@ -64,8 +64,8 @@ func extractPRNumber(message string) int {
 	return 0
 }
 
-// getExistingPR fetches an existing pull request by number
-func getExistingPR(prNumber int) (*github.PullRequest, error) {
+// GetExistingPR fetches an existing pull request by number
+func GetExistingPR(prNumber int) (*github.PullRequest, error) {
 	client := github.NewClient(nil)
 
 	// Get the PR

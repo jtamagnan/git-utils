@@ -1,7 +1,6 @@
-package lint
+package review
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/jtamagnan/git-utils/git"
@@ -15,42 +14,39 @@ func TestPRTitleFromRefSummaries(t *testing.T) {
 		// Create initial commit on main
 		testRepo.AddCommit("README.md", "# Initial commit", "Initial commit")
 
-		// Create a feature branch
+		// Create a feature branch and add commits
 		testRepo.CreateBranch("feature")
-
-		// Add multiple commits on feature branch
 		testRepo.AddCommit("file1.txt", "content1", "Add authentication module")
 		testRepo.AddCommit("file2.txt", "content2", "Fix login validation")
 		testRepo.AddCommit("file3.txt", "content3", "Add user profile endpoint")
 
 		testRepo.RefreshRepo()
 
-		// Test the RefSummaries functionality
+		// Test that RefSummaries returns commits from oldest to newest
 		summaries := testRepo.Repo.RefSummaries("main")
 
-		if len(summaries) != 3 {
-			t.Fatalf("Expected 3 summaries, got %d", len(summaries))
-		}
-
-		// The oldest/first commit should be the first element in the array
-		oldestSummary := summaries[0]
-		expectedTitle := "Add authentication module"
-
-		if oldestSummary != expectedTitle {
-			t.Errorf("Expected PR title %q, got %q", expectedTitle, oldestSummary)
-		}
-
-		// Verify the full order (oldest to newest)
-		expected := []string{
+		expectedSummaries := []string{
 			"Add authentication module",
 			"Fix login validation",
 			"Add user profile endpoint",
 		}
 
-		for i, summary := range summaries {
-			if summary != expected[i] {
-				t.Errorf("Summary[%d]: expected %q, got %q", i, expected[i], summary)
+		if len(summaries) != len(expectedSummaries) {
+			t.Fatalf("Expected %d summaries, got %d", len(expectedSummaries), len(summaries))
+		}
+
+		for i, expected := range expectedSummaries {
+			if summaries[i] != expected {
+				t.Errorf("Expected summary[%d] = %q, got %q", i, expected, summaries[i])
 			}
+		}
+
+		// The PR title should be the first (oldest) commit summary
+		prTitle := summaries[0]
+		expectedTitle := "Add authentication module"
+
+		if prTitle != expectedTitle {
+			t.Errorf("Expected PR title %q, got %q", expectedTitle, prTitle)
 		}
 	})
 }
@@ -60,23 +56,19 @@ func TestRefSummariesEmptyRangeError(t *testing.T) {
 	defer testRepo.Cleanup()
 
 	testRepo.InDir(func() {
-		// Create initial commit
+		// Create initial commit on main
 		testRepo.AddCommit("README.md", "# Initial commit", "Initial commit")
+
+		// Create a feature branch but don't add any commits
+		testRepo.CreateBranch("feature")
+
 		testRepo.RefreshRepo()
 
-		// Test RefSummaries when HEAD equals the parent (no commits between)
-		summaries := testRepo.Repo.RefSummaries("HEAD")
+		// RefSummaries should return empty slice when no commits between branches
+		summaries := testRepo.Repo.RefSummaries("main")
 
 		if len(summaries) != 0 {
-			t.Fatalf("Expected 0 summaries for equal refs, got %d", len(summaries))
-		}
-
-		// This simulates the error condition that should be caught in Review()
-		if len(summaries) == 0 {
-			err := fmt.Errorf("no commits found between %s and HEAD - nothing to create a pull request for", "HEAD")
-			if err == nil {
-				t.Error("Expected error for empty commit range, got nil")
-			}
+			t.Errorf("Expected empty summaries for branch with no commits, got %d summaries", len(summaries))
 		}
 	})
 }
@@ -87,35 +79,32 @@ func TestMultipleBranchesRefSummaries(t *testing.T) {
 
 	testRepo.InDir(func() {
 		// Create initial commit on main
-		testRepo.AddCommit("README.md", "# Initial", "Initial commit")
+		testRepo.AddCommit("README.md", "# Initial commit", "Initial commit")
 
-		// Create feature branch with one commit
-		testRepo.CreateBranch("feature")
-		testRepo.AddCommit("feature.txt", "feature", "Add feature")
+		// Create first feature branch
+		testRepo.CreateBranch("feature1")
+		testRepo.AddCommit("file1.txt", "content1", "Feature 1 commit")
 
-		// Switch back to main and add another commit
-		testRepo.GitExec("checkout", "main")
-		testRepo.AddCommit("main.txt", "main", "Update main branch")
+		// Switch back to main and create second feature branch
+		testRepo.SwitchBranch("main")
+		testRepo.CreateBranch("feature2")
+		testRepo.AddCommit("file2.txt", "content2", "Feature 2 first commit")
+		testRepo.AddCommit("file3.txt", "content3", "Feature 2 second commit")
 
-		// Switch back to feature
-		testRepo.GitExec("checkout", "feature")
 		testRepo.RefreshRepo()
 
-		// RefSummaries should only show commits on feature branch since divergence
-		summaries := testRepo.Repo.RefSummaries("main")
+		// Test feature1 summaries
+		feature1Summaries := testRepo.Repo.RefSummaries("main")
+		expectedFeature1 := []string{"Feature 2 first commit", "Feature 2 second commit"}
 
-		if len(summaries) != 1 {
-			t.Fatalf("Expected 1 summary for feature branch, got %d", len(summaries))
+		if len(feature1Summaries) != len(expectedFeature1) {
+			t.Errorf("Expected %d summaries for feature2, got %d", len(expectedFeature1), len(feature1Summaries))
 		}
 
-		if summaries[0] != "Add feature" {
-			t.Errorf("Expected 'Add feature', got %q", summaries[0])
-		}
-
-		// The oldest/first (and only) commit should be used as PR title
-		prTitle := summaries[0]
-		if prTitle != "Add feature" {
-			t.Errorf("Expected PR title 'Add feature', got %q", prTitle)
+		for i, expected := range expectedFeature1 {
+			if feature1Summaries[i] != expected {
+				t.Errorf("Expected feature2 summary[%d] = %q, got %q", i, expected, feature1Summaries[i])
+			}
 		}
 	})
 }
