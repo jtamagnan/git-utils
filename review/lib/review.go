@@ -30,6 +30,19 @@ func getPRDescription() (string, error) {
 	return editor.OpenEditor(initialContent)
 }
 
+// cleanupRemoteBranch deletes a remote branch if it was created for a new PR
+func cleanupRemoteBranch(repo *git.Repository, upstream, remoteBranchName string) {
+	fmt.Printf("Cleaning up remote branch: %s\n", remoteBranchName)
+
+	// Delete the remote branch
+	_, cleanupErr := repo.GitExec("push", upstream, "--delete", remoteBranchName)
+	if cleanupErr != nil {
+		fmt.Printf("Warning: Failed to delete remote branch %s: %v\n", remoteBranchName, cleanupErr)
+	} else {
+		fmt.Printf("Successfully deleted remote branch: %s\n", remoteBranchName)
+	}
+}
+
 // Review performs the main review workflow
 func Review(args ParsedArgs) error {
 	// TODO(jat): Support adding labels
@@ -95,6 +108,16 @@ func Review(args ParsedArgs) error {
 	_, err = repo.GitExec("push", "--force", upstream, fmt.Sprintf("HEAD:%s", remoteBranchName))
 	if err != nil { return err }
 
+	// Set up cleanup for new PR branches in case of failure
+	var prCreationSucceeded bool
+	if isNewPR {
+		defer func() {
+			if !prCreationSucceeded {
+				cleanupRemoteBranch(repo, upstream, remoteBranchName)
+			}
+		}()
+	}
+
 	//
 	// Create the PR or get the existing one that we're working with.
 	//
@@ -120,6 +143,11 @@ func Review(args ParsedArgs) error {
 		//
 		githubPR, err = githubapi.CreatePR(repoInfo.Owner, repoInfo.Name, prTitle, remoteBranchName, upstreamBranch, prDescription, args.Draft)
 		if err != nil { return err }
+
+		//
+		// Mark PR creation as successful to prevent branch deletion
+		//
+		prCreationSucceeded = true
 		fmt.Printf("Created new PR #%d: %s\n", *githubPR.Number, *githubPR.HTMLURL)
 
 		//
