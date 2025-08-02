@@ -1,117 +1,11 @@
 package lint
 
 import (
-	"context"
-	"crypto/rand"
 	"fmt"
-	"os"
-	"regexp"
-	"strconv"
 	"strings"
 
-	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/google/go-github/v71/github"
 	"github.com/jtamagnan/git-utils/git"
 )
-
-// getUserIdentifier gets the user identifier from git config or environment variable
-func getUserIdentifier() (string, error) {
-	// First try git config
-	if identifier, err := git.GetConfig("review.user-identifier"); err == nil && identifier != "" {
-		return identifier, nil
-	}
-
-	// Fall back to USER environment variable
-	if user := os.Getenv("USER"); user != "" {
-		return user, nil
-	}
-
-	// Return error if no identifier found
-	return "", fmt.Errorf("no user identifier found: set 'git config review.user-identifier <name>' or ensure USER environment variable is set")
-}
-
-// generateUUIDBranchName creates a user-prefixed UUID-based branch name for new PRs
-func generateUUIDBranchName() (string, error) {
-	// Get user identifier
-	userID, err := getUserIdentifier()
-	if err != nil {
-		return "", err
-	}
-
-	// Generate a simple UUID-like string for branch naming
-	bytes := make([]byte, 16)
-	rand.Read(bytes)
-
-	// Format as: user/pr/UUID (8-4-4-4-12 characters)
-	return fmt.Sprintf("%s/pr/%x-%x-%x-%x-%x",
-		userID, bytes[0:4], bytes[4:6], bytes[6:8], bytes[8:10], bytes[10:16]), nil
-}
-
-// getRemoteBranchFromPR gets the remote branch name from an existing PR
-func getRemoteBranchFromPR(prNumber int) (string, error) {
-	client := github.NewClient(nil)
-
-	// Get the PR details
-	pr, _, err := client.PullRequests.Get(context.Background(), "owner", "repo", prNumber)
-	if err != nil {
-		return "", fmt.Errorf("failed to get PR #%d: %v", prNumber, err)
-	}
-
-	// Return the head branch name (the branch the PR is coming from)
-	if pr.Head != nil && pr.Head.Ref != nil {
-		return *pr.Head.Ref, nil
-	}
-
-	return "", fmt.Errorf("PR #%d has no head branch information", prNumber)
-}
-
-// detectExistingPR checks all commit messages in the current branch for PR URLs
-// Returns the PR number if found, or an error if no PR URL is detected
-func detectExistingPR(repo *git.Repository, upstreamBranch string) (int, error) {
-	// Use RefExec to collect PR numbers from all commits (0 if no PR found in that commit)
-	prNumbers := git.RefExec(repo, func(commit *object.Commit) int {
-		// Extract PR number from this commit's message
-		return extractPRNumber(commit.Message)
-	}, upstreamBranch)
-
-	// Find the first non-zero PR number (oldest commit with PR)
-	for _, prNumber := range prNumbers {
-		if prNumber > 0 {
-			return prNumber, nil
-		}
-	}
-
-	return 0, fmt.Errorf("no existing PR URL found in any commit")
-}
-
-// extractPRNumber extracts the PR number from a commit message containing "PR URL: ..."
-// Returns 0 if no valid PR URL is found
-func extractPRNumber(message string) int {
-	// Look for pattern: PR URL: https://github.com/owner/repo/pull/123
-	re := regexp.MustCompile(`PR URL:\s*https://github\.com/[^/]+/[^/]+/pull/(\d+)`)
-	matches := re.FindStringSubmatch(message)
-
-	if len(matches) >= 2 {
-		if prNumber, err := strconv.Atoi(matches[1]); err == nil {
-			return prNumber
-		}
-	}
-
-	return 0
-}
-
-// getExistingPR fetches an existing pull request by number
-func getExistingPR(prNumber int) (*github.PullRequest, error) {
-	client := github.NewClient(nil)
-
-	// Get the PR
-	pr, _, err := client.PullRequests.Get(context.Background(), "owner", "repo", prNumber)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get PR #%d: %v", prNumber, err)
-	}
-
-	return pr, nil
-}
 
 // updateOldestCommitWithPRURL updates the oldest commit message to include the PR URL
 func updateOldestCommitWithPRURL(repo *git.Repository, upstreamBranch, prURL string) error {
