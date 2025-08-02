@@ -3,55 +3,33 @@ package main
 import (
 	"testing"
 
-	"github.com/jtamagnan/git-utils/git"
 	review "github.com/jtamagnan/git-utils/review/lib"
+	"github.com/spf13/viper"
 )
 
-func TestGetOpenBrowserDefault(t *testing.T) {
-	// Create a test repository to test git config functionality
-	testRepo := git.NewTestRepo(t)
-	defer testRepo.Cleanup()
+func TestViperConfigIntegration(t *testing.T) {
+	// Reset viper state for testing
+	viper.Reset()
 
-	testRepo.InDir(func() {
-		// Test default behavior (should be true when no config is set)
-		defaultValue := getOpenBrowserDefault()
-		if defaultValue != true {
-			t.Errorf("Expected default value to be true when no config is set, got %v", defaultValue)
-		}
+	// Test that initConfig sets expected defaults
+	initConfig()
 
-		// Test setting config to false
-		_, err := testRepo.Repo.GitExec("config", "review.openBrowser", "false")
-		if err != nil {
-			t.Fatalf("Failed to set git config: %v", err)
-		}
+	if !viper.GetBool("open-browser") {
+		t.Error("Expected open-browser default to be true")
+	}
 
-		defaultValue = getOpenBrowserDefault()
-		if defaultValue != false {
-			t.Errorf("Expected default value to be false when config is set to false, got %v", defaultValue)
-		}
+	if viper.GetBool("draft") {
+		t.Error("Expected draft default to be false")
+	}
 
-		// Test setting config to true
-		_, err = testRepo.Repo.GitExec("config", "review.openBrowser", "true")
-		if err != nil {
-			t.Fatalf("Failed to set git config: %v", err)
-		}
+	if viper.GetBool("no-verify") {
+		t.Error("Expected no-verify default to be false")
+	}
 
-		defaultValue = getOpenBrowserDefault()
-		if defaultValue != true {
-			t.Errorf("Expected default value to be true when config is set to true, got %v", defaultValue)
-		}
-
-		// Test invalid boolean value (should fall back to true)
-		_, err = testRepo.Repo.GitExec("config", "review.openBrowser", "invalid")
-		if err != nil {
-			t.Fatalf("Failed to set git config: %v", err)
-		}
-
-		defaultValue = getOpenBrowserDefault()
-		if defaultValue != true {
-			t.Errorf("Expected default value to be true when config has invalid value, got %v", defaultValue)
-		}
-	})
+	labels := viper.GetStringSlice("labels")
+	if len(labels) != 0 {
+		t.Errorf("Expected empty labels default, got %v", labels)
+	}
 }
 
 func TestLabelsParsing(t *testing.T) {
@@ -95,6 +73,10 @@ func TestLabelsParsing(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Reset viper for each test
+			viper.Reset()
+			initConfig()
+
 			// Create a test command
 			cmd := generateCommand()
 
@@ -163,6 +145,9 @@ func TestParsedArgsStructure(t *testing.T) {
 }
 
 func TestCommandFlags(t *testing.T) {
+	viper.Reset()
+	initConfig()
+
 	cmd := generateCommand()
 
 	// Test that all expected flags are present
@@ -201,5 +186,36 @@ func TestCommandFlags(t *testing.T) {
 
 	if openBrowserFlag.Usage == "" {
 		t.Error("Expected open-browser flag to have usage text")
+	}
+}
+
+func TestEnvironmentVariableSupport(t *testing.T) {
+	// Test that environment variables work with REVIEW_ prefix
+	viper.Reset()
+
+	// Set test environment variables
+	t.Setenv("REVIEW_OPEN_BROWSER", "false")
+	t.Setenv("REVIEW_DRAFT", "true")
+	t.Setenv("REVIEW_NO_VERIFY", "true")
+	t.Setenv("REVIEW_LABELS", "env-test,automated")
+
+	// Initialize config which should pick up env vars
+	initConfig()
+
+	// Test that environment variables are respected
+	if viper.GetBool("open-browser") {
+		t.Error("Expected open-browser to be false from env var")
+	}
+
+	if !viper.GetBool("draft") {
+		t.Error("Expected draft to be true from env var")
+	}
+
+	if !viper.GetBool("no-verify") {
+		t.Error("Expected no-verify to be true from env var")
+	}
+
+	if viper.GetString("labels") != "env-test,automated" {
+		t.Errorf("Expected labels to be 'env-test,automated' from env var, got: %s", viper.GetString("labels"))
 	}
 }

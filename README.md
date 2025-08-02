@@ -14,34 +14,70 @@ golang.
 
 ## Configuration
 
-The tools can be configured using git config. Available options:
+The tools support multiple configuration sources with the following precedence (highest to lowest):
 
-### Review Tool
+1. **Command-line flags** (highest priority)
+2. **Environment variables** (with `REVIEW_` prefix)
+3. **User-level config files** (`~/.git-review.yaml` or `~/.config/git-review.yaml`)
+4. **Hardcoded defaults** (lowest priority)
 
-- **`review.openBrowser`** (boolean, default: `true`) - Whether to automatically open the pull request in your browser after creation
-  ```bash
-  # Disable automatic browser opening
-  git config review.openBrowser false
+**Note**: For security and consistency, behavioral settings like `open-browser`, `draft`, and `labels` are intentionally **NOT** configurable per repository. These remain user-level preferences only.
 
-  # Enable automatic browser opening (default)
-  git config review.openBrowser true
-  ```
+### Review Tool Configuration
 
-- **`review.user-identifier`** (string) - User identifier for branch naming (falls back to `$USER` environment variable)
-  ```bash
-  # Set a custom user identifier for branch prefixes
-  git config review.user-identifier "john"
-  ```
+#### Environment Variables
+All settings can be configured via environment variables with the `REVIEW_` prefix:
+
+```bash
+# Configure default behavior via environment variables
+export REVIEW_OPEN_BROWSER=false
+export REVIEW_DRAFT=true
+export REVIEW_NO_VERIFY=false
+export REVIEW_LABELS="auto-generated,needs-review"
+```
+
+#### User Config File
+Create `~/.git-review.yaml` for persistent user preferences:
+
+```yaml
+# User-level preferences (applies to all repositories)
+open-browser: false
+draft: true
+no-verify: false
+labels:
+  - "auto-generated"
+  - "needs-review"
+```
+
+#### Available Settings
+
+- **`open-browser`** (boolean, default: `true`) - Whether to automatically open the pull request in your browser after creation
+- **`draft`** (boolean, default: `false`) - Whether to create pull requests as drafts by default
+- **`no-verify`** (boolean, default: `false`) - Whether to skip pre-push checks by default
+- **`labels`** (array/string, default: `[]`) - Default labels to add to pull requests
+
+### Configuration Precedence Examples
+
+```bash
+# Set user preference to not open browser
+echo "open-browser: false" > ~/.git-review.yaml
+
+# Override with environment variable
+REVIEW_OPEN_BROWSER=true go run ./review
+
+# Override both with command-line flag
+REVIEW_OPEN_BROWSER=true go run ./review --open-browser=false
+```
 
 ### Usage Examples
 
 ```bash
-# Create a PR with default settings (respects git config)
+# Use defaults from config files/environment
 go run ./review
 
-# Override git config and force browser opening
-go run ./review --open-browser
+# Override specific settings
+go run ./review --open-browser=false --draft --labels "hotfix,urgent"
 
-# Create a draft PR with labels
-go run ./review --draft --labels "feature,backend"
+# Use environment variables for this session
+REVIEW_LABELS="feature,frontend" go run ./review --draft
 ```

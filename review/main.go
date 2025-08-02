@@ -1,61 +1,83 @@
 package main
 
 import (
+	"fmt"
 	"os"
-	"strconv"
 	"strings"
 
-	"github.com/jtamagnan/git-utils/git"
 	review "github.com/jtamagnan/git-utils/review/lib"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
-// getOpenBrowserDefault gets the default value for --open-browser from git config
-func getOpenBrowserDefault() bool {
-	// Try to get the setting from git config
-	if value, err := git.GetConfig("review.openBrowser"); err == nil && value != "" {
-		// Parse boolean value (git config uses "true"/"false" strings)
-		if parsed, err := strconv.ParseBool(value); err == nil {
-			return parsed
-		}
+// initConfig sets up Viper configuration
+func initConfig() {
+	// Set hardcoded defaults for user-level settings
+	viper.SetDefault("open-browser", true)
+	viper.SetDefault("draft", false)
+	viper.SetDefault("no-verify", false)
+	viper.SetDefault("labels", []string{})
+
+	// Support environment variables with REVIEW_ prefix
+	viper.SetEnvPrefix("REVIEW")
+	viper.AutomaticEnv()
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+
+	// Set up global config file locations (user-level only)
+	// These settings should NOT be configurable per repository
+	viper.SetConfigName("git-review")
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath("$HOME/.config") // ~/.config/git-review.yaml
+	viper.AddConfigPath("$HOME")         // ~/.git-review.yaml
+
+	// Try to read user-level config file
+	if err := viper.ReadInConfig(); err == nil {
+		fmt.Printf("Using config file: %s\n", viper.ConfigFileUsed())
 	}
 
-	// Default to true if not configured or invalid
-	return true
+	// Note: We intentionally do NOT read project-level config files for
+	// behavioral settings like open-browser, draft, labels, etc.
+	// These should remain user preferences, not project settings.
+}
+
+// getProjectConfig reads project-specific settings that ARE allowed per repository
+func getProjectConfig() {
+	// For now, we don't have any project-level settings defined
+	// But this is where you'd add things like:
+	// - Default reviewers for this project
+	// - Project-specific PR templates
+	// - Custom branch naming schemes
+	// etc.
+
+	// Example of what we might add later:
+	// if reviewers, err := git.GetConfig("review.defaultReviewers"); err == nil && reviewers != "" {
+	//     viper.Set("project.default-reviewers", strings.Split(reviewers, ","))
+	// }
+	// Note: Would need to import git package if we add git config support here
 }
 
 func parseArgs(cmd *cobra.Command, _ []string) (review.ParsedArgs, error) {
-	parsedArgs := review.ParsedArgs{}
+	// Viper automatically handles the precedence:
+	// 1. Command-line flags (highest)
+	// 2. Environment variables
+	// 3. User config files
+	// 4. Defaults (lowest)
 
-	noVerify, err := cmd.Flags().GetBool("no-verify")
-	if err != nil {
-		return parsedArgs, err
-	}
-	parsedArgs.NoVerify = noVerify
-
-	openBrowser, err := cmd.Flags().GetBool("open-browser")
-	if err != nil {
-		return parsedArgs, err
-	}
-	parsedArgs.OpenBrowser = openBrowser
-
-	draft, err := cmd.Flags().GetBool("draft")
-	if err != nil {
-		return parsedArgs, err
-	}
-	parsedArgs.Draft = draft
-
-	labels, err := cmd.Flags().GetString("labels")
-	if err != nil {
-		return parsedArgs, err
-	}
-	// Parse comma-separated labels
-	if labels != "" {
-		parsedArgs.Labels = strings.Split(labels, ",")
+	// Handle labels parsing from comma-separated string
+	var labels []string
+	if labelsStr := viper.GetString("labels"); labelsStr != "" {
+		labels = strings.Split(labelsStr, ",")
 		// Trim whitespace from each label
-		for i, label := range parsedArgs.Labels {
-			parsedArgs.Labels[i] = strings.TrimSpace(label)
+		for i, label := range labels {
+			labels[i] = strings.TrimSpace(label)
 		}
+	}
+
+	parsedArgs := review.ParsedArgs{
+		NoVerify:    viper.GetBool("no-verify"),
+		OpenBrowser: viper.GetBool("open-browser"),
+		Draft:       viper.GetBool("draft"),
+		Labels:      labels,
 	}
 
 	return parsedArgs, nil
@@ -78,17 +100,25 @@ func generateCommand() *cobra.Command {
 	var rootCmd = &cobra.Command{
 		Use:   "git-review",
 		Short: "Open a pull request for this repository.",
-		RunE:  runE,
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			initConfig()
+			getProjectConfig()
+		},
+		RunE: runE,
 	}
 
-	// Get the default value for open-browser from git config
-	openBrowserDefault := getOpenBrowserDefault()
-
+	// Define flags with hardcoded defaults (Viper will override these after config is loaded)
 	rootCmd.Flags().BoolP("no-verify", "v", false, "Skip the pre-push checks")
-	rootCmd.Flags().BoolP("open-browser", "b", openBrowserDefault, "Open the pull request in the browser (default from git config review.openBrowser)")
+	rootCmd.Flags().BoolP("open-browser", "b", true, "Open the pull request in the browser")
 	rootCmd.Flags().BoolP("draft", "d", false, "Create the pull request as a draft")
 	rootCmd.Flags().StringP("labels", "l", "", "Comma-separated list of labels to add to the PR (e.g., 'bug,enhancement')")
-	// TODO(jat): Learn to use viper
+
+	// Bind flags to viper for automatic precedence handling
+	_ = viper.BindPFlag("no-verify", rootCmd.Flags().Lookup("no-verify"))
+	_ = viper.BindPFlag("open-browser", rootCmd.Flags().Lookup("open-browser"))
+	_ = viper.BindPFlag("draft", rootCmd.Flags().Lookup("draft"))
+	_ = viper.BindPFlag("labels", rootCmd.Flags().Lookup("labels"))
+
 	return rootCmd
 }
 
