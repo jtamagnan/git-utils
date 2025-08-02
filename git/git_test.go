@@ -45,11 +45,11 @@ func TestRefSummaries(t *testing.T) {
 			t.Fatalf("Expected 3 summaries, got %d", len(summaries))
 		}
 		
-		// Verify the order (newest to oldest)
+		// Verify the order (oldest to newest)
 		expected := []string{
-			"Third feature commit",
-			"Second feature commit", 
 			"First feature commit",
+			"Second feature commit", 
+			"Third feature commit",
 		}
 		
 		for i, summary := range summaries {
@@ -58,8 +58,8 @@ func TestRefSummaries(t *testing.T) {
 			}
 		}
 		
-		// Test the oldest/first commit (last in array)
-		oldestSummary := summaries[len(summaries)-1]
+		// Test the oldest/first commit (first in array)
+		oldestSummary := summaries[0]
 		if oldestSummary != "First feature commit" {
 			t.Errorf("Oldest summary: expected %q, got %q", "First feature commit", oldestSummary)
 		}
