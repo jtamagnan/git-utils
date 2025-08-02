@@ -74,7 +74,9 @@ func Review(args ParsedArgs) error {
 	if len(summaries) == 0 {
 		return fmt.Errorf("no commits found between %s and HEAD - nothing to create a pull request for", upstreamBranch)
 	}
-	prTitle := summaries[len(summaries)-1]
+	
+	// Use the first element which is the oldest/first commit summary (RefSummaries returns oldest to newest)
+	prTitle := summaries[0]
 
 	// TODO(jat): Don't open a PR if there is already an associated PR
 	// Create the PR

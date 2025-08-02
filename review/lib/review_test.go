@@ -32,19 +32,19 @@ func TestPRTitleFromRefSummaries(t *testing.T) {
 			t.Fatalf("Expected 3 summaries, got %d", len(summaries))
 		}
 		
-		// The oldest/first commit should be the last element in the array
-		oldestSummary := summaries[len(summaries)-1]
+		// The oldest/first commit should be the first element in the array
+		oldestSummary := summaries[0]
 		expectedTitle := "Add authentication module"
 		
 		if oldestSummary != expectedTitle {
 			t.Errorf("Expected PR title %q, got %q", expectedTitle, oldestSummary)
 		}
 		
-		// Verify the full order (newest to oldest)
+		// Verify the full order (oldest to newest)
 		expected := []string{
-			"Add user profile endpoint",
-			"Fix login validation",
 			"Add authentication module",
+			"Fix login validation",
+			"Add user profile endpoint",
 		}
 		
 		for i, summary := range summaries {
@@ -113,7 +113,7 @@ func TestMultipleBranchesRefSummaries(t *testing.T) {
 		}
 		
 		// The oldest/first (and only) commit should be used as PR title
-		prTitle := summaries[len(summaries)-1]
+		prTitle := summaries[0]
 		if prTitle != "Add feature" {
 			t.Errorf("Expected PR title 'Add feature', got %q", prTitle)
 		}
