@@ -94,7 +94,7 @@ func Review(args ParsedArgs) error {
 
 	//
 	// Determine the remote branch name to use and if the PR already
-	// exists
+	// exists and is open
 	//
 	var remoteBranchName string
 	var isNewPR bool
@@ -106,11 +106,23 @@ func Review(args ParsedArgs) error {
 		isNewPR = true
 		fmt.Printf("No existing PR found, will create new PR with branch: %s\n", remoteBranchName)
 	} else {
-		// Existing PR found, get the remote branch name from the PR
-		remoteBranchName, err = githubapi.GetRemoteBranchFromPR(repoInfo.Owner, repoInfo.Name, existingPRNumber)
+		// Check if the existing PR is still open
+		existingPR, err := githubapi.GetExistingPR(repoInfo.Owner, repoInfo.Name, existingPRNumber)
 		if err != nil { return err }
-		isNewPR = false
-		fmt.Printf("Found existing PR #%d, will update branch: %s\n", existingPRNumber, remoteBranchName)
+
+		if existingPR.State != nil && *existingPR.State == "open" {
+			// Existing open PR found, get the remote branch name from the PR
+			remoteBranchName, err = githubapi.GetRemoteBranchFromPR(repoInfo.Owner, repoInfo.Name, existingPRNumber)
+			if err != nil { return err }
+			isNewPR = false
+			fmt.Printf("Found existing open PR #%d, will update branch: %s\n", existingPRNumber, remoteBranchName)
+		} else {
+			// Existing PR is closed, create a new PR
+			remoteBranchName, err = branch.GenerateUUIDBranchName()
+			if err != nil { return err }
+			isNewPR = true
+			fmt.Printf("Found existing PR #%d but it's closed, will create new PR with branch: %s\n", existingPRNumber, remoteBranchName)
+		}
 	}
 
 	//
