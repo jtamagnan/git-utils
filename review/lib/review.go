@@ -1,7 +1,6 @@
 package review
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/google/go-github/v71/github"
@@ -10,6 +9,7 @@ import (
 	lint "github.com/jtamagnan/git-utils/lint/lib"
 	"github.com/jtamagnan/git-utils/review/lib/branch"
 	"github.com/jtamagnan/git-utils/review/lib/commit"
+	githubapi "github.com/jtamagnan/git-utils/review/lib/github"
 	"github.com/jtamagnan/git-utils/review/lib/pr"
 	"github.com/jtamagnan/git-utils/review/lib/template"
 )
@@ -73,7 +73,7 @@ func Review(args ParsedArgs) error {
 		fmt.Printf("No existing PR found, will create new PR with branch: %s\n", remoteBranchName)
 	} else {
 		// Existing PR found, get the remote branch name from the PR
-		remoteBranchName, err = pr.GetRemoteBranchFromPR(existingPRNumber)
+		remoteBranchName, err = githubapi.GetRemoteBranchFromPR(existingPRNumber)
 		if err != nil { return err }
 		isNewPR = false
 		fmt.Printf("Found existing PR #%d, will update branch: %s\n", existingPRNumber, remoteBranchName)
@@ -109,15 +109,7 @@ func Review(args ParsedArgs) error {
 		//
 		// Open the PR
 		//
-		client := github.NewClient(nil)
-		prRequest := &github.NewPullRequest{
-			Title: github.Ptr(prTitle),
-			Head:  github.Ptr(remoteBranchName),
-			Base:  github.Ptr(upstreamBranch),
-			Body:  github.Ptr(prDescription),
-			Draft: github.Ptr(args.Draft),
-		}
-		githubPR, _, err = client.PullRequests.Create(context.Background(), "owner", "repo", prRequest)
+		githubPR, err = githubapi.CreatePR(prTitle, remoteBranchName, upstreamBranch, prDescription, args.Draft)
 		if err != nil { return err }
 		fmt.Printf("Created new PR #%d: %s\n", *githubPR.Number, *githubPR.HTMLURL)
 
@@ -138,7 +130,7 @@ func Review(args ParsedArgs) error {
 		// Get the PR
 		//
 		fmt.Printf("Found existing PR #%d\n", existingPRNumber)
-		githubPR, err = pr.GetExistingPR(existingPRNumber)
+		githubPR, err = githubapi.GetExistingPR(existingPRNumber)
 		if err != nil { return err }
 	}
 
