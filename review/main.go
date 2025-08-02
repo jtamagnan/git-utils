@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/jtamagnan/git-utils/git"
 	review "github.com/jtamagnan/git-utils/review/lib"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -42,18 +43,40 @@ func initConfig() {
 
 // getProjectConfig reads project-specific settings that ARE allowed per repository
 func getProjectConfig() {
-	// For now, we don't have any project-level settings defined
-	// But this is where you'd add things like:
-	// - Default reviewers for this project
-	// - Project-specific PR templates
-	// - Custom branch naming schemes
-	// etc.
+	// Read git config values for project-specific settings
 
-	// Example of what we might add later:
-	// if reviewers, err := git.GetConfig("review.defaultReviewers"); err == nil && reviewers != "" {
-	//     viper.Set("project.default-reviewers", strings.Split(reviewers, ","))
-	// }
-	// Note: Would need to import git package if we add git config support here
+	// Default reviewers for this project
+	if reviewers, err := git.GetConfig("review.defaultReviewers"); err == nil && reviewers != "" {
+		reviewerList := strings.Split(reviewers, ",")
+		// Trim whitespace from each reviewer
+		for i, reviewer := range reviewerList {
+			reviewerList[i] = strings.TrimSpace(reviewer)
+		}
+		viper.Set("project.default-reviewers", reviewerList)
+	}
+
+	// Additional project-specific labels (these are ADDED to user labels, not replaced)
+	if projectLabels, err := git.GetConfig("review.projectLabels"); err == nil && projectLabels != "" {
+		labelList := strings.Split(projectLabels, ",")
+		// Trim whitespace from each label
+		for i, label := range labelList {
+			labelList[i] = strings.TrimSpace(label)
+		}
+
+		// Merge with existing labels (user-defined labels take precedence)
+		existingLabels := viper.GetStringSlice("labels")
+		allLabels := append(existingLabels, labelList...)
+		viper.Set("labels", allLabels)
+	}
+
+	// Custom branch prefix for this project (defaults to user identifier)
+	if branchPrefix, err := git.GetConfig("review.branchPrefix"); err == nil && branchPrefix != "" {
+		viper.Set("project.branch-prefix", branchPrefix)
+	}
+
+	// Note: Behavioral settings like open-browser, draft, no-verify are intentionally
+	// NOT configurable via git config to maintain user control and prevent
+	// projects from overriding user workflow preferences.
 }
 
 func parseArgs(cmd *cobra.Command, _ []string) (review.ParsedArgs, error) {
