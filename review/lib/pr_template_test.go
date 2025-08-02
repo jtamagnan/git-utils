@@ -2,6 +2,7 @@ package lint
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/jtamagnan/git-utils/git"
@@ -12,11 +13,11 @@ func TestFindPRTemplate(t *testing.T) {
 	defer testRepo.Cleanup()
 
 	testRepo.InDir(func() {
-		// Test 1: No template files exist - should return default
+		// Test 1: No template files exist - should return default from embedded file
 		defaultContent := findPRTemplate()
-		expectedDefault := "## Description\n\nBrief description of changes.\n\n## Changes\n\n- \n\n## Testing\n\n- \n"
-		if defaultContent != expectedDefault {
-			t.Errorf("Expected default template, got: %q", defaultContent)
+		// The default should now come from default_pull_request_template.md
+		if !isDefaultTemplate(defaultContent) {
+			t.Errorf("Expected default template from embedded file, got: %q", defaultContent)
 		}
 
 		// Test 2: Create .github directory and add template
@@ -68,8 +69,28 @@ func TestFindPRTemplate(t *testing.T) {
 		}
 
 		foundContent = findPRTemplate()
-		if foundContent != expectedDefault {
+		if !isDefaultTemplate(foundContent) {
 			t.Errorf("Expected default template after removing all templates, got: %q", foundContent)
 		}
 	})
+}
+
+// isDefaultTemplate checks if the content matches our default template structure
+func isDefaultTemplate(content string) bool {
+	// Check for key sections that should be in our default template
+	expectedSections := []string{
+		"## Summary",
+		"## Motivation",
+		"## Risks",
+		"## Test plan",
+		"## Rollout plan",
+		"## Is this safe to roll back?",
+	}
+
+	for _, section := range expectedSections {
+		if !strings.Contains(content, section) {
+			return false
+		}
+	}
+	return true
 }
