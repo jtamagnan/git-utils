@@ -119,3 +119,4 @@ func TestMultipleBranchesRefSummaries(t *testing.T) {
 		}
 	})
 }
+

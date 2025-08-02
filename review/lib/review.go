@@ -19,9 +19,14 @@ type ParsedArgs struct {
 
 
 func getPRDescription() (string, error) {
-	// Get the PR description
-	return editor.OpenEditor("Testing")
+	// Look for GitHub PR template in common locations
+	templateContent := findPRTemplate()
+
+	// Open editor with template content as initial text
+	return editor.OpenEditor(templateContent)
 }
+
+
 
 func Review(args ParsedArgs) error {
 	// TODO(jat): Support adding labels
