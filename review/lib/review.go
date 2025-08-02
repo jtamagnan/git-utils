@@ -25,7 +25,6 @@ func getPRDescription() (string, error) {
 
 func Review(args ParsedArgs) error {
 	// TODO(jat): Support adding labels
-	// TODO(jat): Support getting the description from the commit message
 
 	// Get the current repository
 	repo, err := git.GetRepository()
