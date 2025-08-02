@@ -3,16 +3,16 @@ package github
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/google/go-github/v71/github"
+	keychain "github.com/jtamagnan/git-utils/keychain/lib"
 )
 
 // newAuthenticatedClient creates a GitHub client with token authentication
 func newAuthenticatedClient() (*github.Client, error) {
-	token := os.Getenv("GITHUB_TOKEN")
-	if token == "" {
-		return nil, fmt.Errorf("GITHUB_TOKEN environment variable is required for GitHub API access")
+	token, err := keychain.GetGitHubToken()
+	if err != nil {
+		return nil, err
 	}
 
 	return github.NewClient(nil).WithAuthToken(token), nil
