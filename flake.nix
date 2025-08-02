@@ -18,6 +18,7 @@
       packages = {
         gitlint = callPackage ./lint { };
         gitreview = callPackage ./review { };
+        gitkeychain = callPackage ./keychain { };
       };
     in
       {
