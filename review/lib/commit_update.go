@@ -2,6 +2,7 @@ package lint
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -11,6 +12,35 @@ import (
 	"github.com/google/go-github/v71/github"
 	"github.com/jtamagnan/git-utils/git"
 )
+
+// generateUUIDBranchName creates a UUID-based branch name for new PRs
+func generateUUIDBranchName() string {
+	// Generate a simple UUID-like string for branch naming
+	bytes := make([]byte, 16)
+	rand.Read(bytes)
+
+	// Format as UUID: 8-4-4-4-12 characters
+	return fmt.Sprintf("pr-%x-%x-%x-%x-%x",
+		bytes[0:4], bytes[4:6], bytes[6:8], bytes[8:10], bytes[10:16])
+}
+
+// getRemoteBranchFromPR gets the remote branch name from an existing PR
+func getRemoteBranchFromPR(prNumber int) (string, error) {
+	client := github.NewClient(nil)
+
+	// Get the PR details
+	pr, _, err := client.PullRequests.Get(context.Background(), "owner", "repo", prNumber)
+	if err != nil {
+		return "", fmt.Errorf("failed to get PR #%d: %v", prNumber, err)
+	}
+
+	// Return the head branch name (the branch the PR is coming from)
+	if pr.Head != nil && pr.Head.Ref != nil {
+		return *pr.Head.Ref, nil
+	}
+
+	return "", fmt.Errorf("PR #%d has no head branch information", prNumber)
+}
 
 // detectExistingPR checks all commit messages in the current branch for PR URLs
 // Returns the PR number if found, or an error if no PR URL is detected

@@ -1,6 +1,7 @@
 package lint
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 
@@ -311,5 +312,60 @@ func TestExtractPRNumber(t *testing.T) {
 				t.Errorf("extractPRNumber(%q) = %d, expected %d", tt.message, result, tt.expected)
 			}
 		})
+	}
+}
+
+func TestGenerateUUIDBranchName(t *testing.T) {
+	// Test that UUID branch names are generated correctly
+	branch1 := generateUUIDBranchName()
+	branch2 := generateUUIDBranchName()
+
+	// Should start with "pr-"
+	if !strings.HasPrefix(branch1, "pr-") {
+		t.Errorf("Expected branch name to start with 'pr-', got: %s", branch1)
+	}
+	if !strings.HasPrefix(branch2, "pr-") {
+		t.Errorf("Expected branch name to start with 'pr-', got: %s", branch2)
+	}
+
+	// Should be different (highly unlikely to collide)
+	if branch1 == branch2 {
+		t.Errorf("Expected different UUIDs, but got the same: %s", branch1)
+	}
+
+	// Should match UUID format: pr-XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
+	expectedPattern := `^pr-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`
+	matched, err := regexp.MatchString(expectedPattern, branch1)
+	if err != nil {
+		t.Fatalf("Failed to compile regex: %v", err)
+	}
+	if !matched {
+		t.Errorf("Branch name doesn't match UUID pattern. Expected format: pr-XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX, got: %s", branch1)
+	}
+
+	matched, err = regexp.MatchString(expectedPattern, branch2)
+	if err != nil {
+		t.Fatalf("Failed to compile regex: %v", err)
+	}
+	if !matched {
+		t.Errorf("Branch name doesn't match UUID pattern. Expected format: pr-XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX, got: %s", branch2)
+	}
+}
+
+func TestGenerateUUIDBranchNameUniqueness(t *testing.T) {
+	// Generate multiple UUIDs and ensure they're all unique
+	const numUUIDs = 100
+	uuids := make(map[string]bool)
+
+	for i := 0; i < numUUIDs; i++ {
+		uuid := generateUUIDBranchName()
+		if uuids[uuid] {
+			t.Errorf("Duplicate UUID generated: %s", uuid)
+		}
+		uuids[uuid] = true
+	}
+
+	if len(uuids) != numUUIDs {
+		t.Errorf("Expected %d unique UUIDs, got %d", numUUIDs, len(uuids))
 	}
 }
