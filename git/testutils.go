@@ -44,11 +44,11 @@ func NewTestRepo(t *testing.T) *TestRepo {
 	if err != nil {
 		t.Fatalf("Failed to get current dir: %v", err)
 	}
-	
+
 	os.Chdir(tempDir)
 	repo, err := GetRepository()
 	os.Chdir(oldDir)
-	
+
 	if err != nil {
 		os.RemoveAll(tempDir)
 		t.Fatalf("Failed to open test repo: %v", err)
@@ -141,11 +141,11 @@ func (tr *TestRepo) InDir(fn func()) {
 		tr.t.Fatalf("Failed to get current dir: %v", err)
 	}
 	defer os.Chdir(oldDir)
-	
+
 	if err := os.Chdir(tr.Dir); err != nil {
 		tr.t.Fatalf("Failed to change to test dir: %v", err)
 	}
-	
+
 	fn()
 }
 
@@ -159,4 +159,4 @@ func (tr *TestRepo) RefreshRepo() {
 		}
 		tr.Repo = repo
 	})
-} 
+}
