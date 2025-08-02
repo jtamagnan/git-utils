@@ -59,6 +59,15 @@ func Review(args ParsedArgs) error {
 	if err != nil { return err }
 
 	//
+	// Get repository information from upstream URL
+	//
+	upstreamURL, err := repo.GetRemoteURL(upstream)
+	if err != nil { return err }
+
+	repoInfo, err := git.ParseRepositoryInfo(upstreamURL)
+	if err != nil { return err }
+
+	//
 	// Determine the remote branch name to use and if the PR already
 	// exists
 	//
@@ -73,7 +82,7 @@ func Review(args ParsedArgs) error {
 		fmt.Printf("No existing PR found, will create new PR with branch: %s\n", remoteBranchName)
 	} else {
 		// Existing PR found, get the remote branch name from the PR
-		remoteBranchName, err = githubapi.GetRemoteBranchFromPR(existingPRNumber)
+		remoteBranchName, err = githubapi.GetRemoteBranchFromPR(repoInfo.Owner, repoInfo.Name, existingPRNumber)
 		if err != nil { return err }
 		isNewPR = false
 		fmt.Printf("Found existing PR #%d, will update branch: %s\n", existingPRNumber, remoteBranchName)
@@ -109,7 +118,7 @@ func Review(args ParsedArgs) error {
 		//
 		// Open the PR
 		//
-		githubPR, err = githubapi.CreatePR(prTitle, remoteBranchName, upstreamBranch, prDescription, args.Draft)
+		githubPR, err = githubapi.CreatePR(repoInfo.Owner, repoInfo.Name, prTitle, remoteBranchName, upstreamBranch, prDescription, args.Draft)
 		if err != nil { return err }
 		fmt.Printf("Created new PR #%d: %s\n", *githubPR.Number, *githubPR.HTMLURL)
 
@@ -130,7 +139,7 @@ func Review(args ParsedArgs) error {
 		// Get the PR
 		//
 		fmt.Printf("Found existing PR #%d\n", existingPRNumber)
-		githubPR, err = githubapi.GetExistingPR(existingPRNumber)
+		githubPR, err = githubapi.GetExistingPR(repoInfo.Owner, repoInfo.Name, existingPRNumber)
 		if err != nil { return err }
 	}
 
