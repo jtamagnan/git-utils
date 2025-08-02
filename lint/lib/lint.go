@@ -9,8 +9,9 @@ import (
 )
 
 type ParsedArgs struct {
-	AllFiles bool
-	Stream   bool
+	AllFiles   bool
+	Stream     bool
+	CheckNames []string
 }
 
 func Lint(args ParsedArgs) error {
@@ -35,22 +36,40 @@ func Lint(args ParsedArgs) error {
 		return err
 	}
 
-	var cliArgs []string
-	cliArgs = append(cliArgs, "run")
-	cliArgs = append(cliArgs, "--color=always")
-	cliArgs = append(cliArgs, "--all-files")
+	var baseArgs []string
+	baseArgs = append(baseArgs, "run")
+	baseArgs = append(baseArgs, "--color=always")
+	baseArgs = append(baseArgs, "--all-files")
 
 	if !args.AllFiles {
-		cliArgs = append(cliArgs, fmt.Sprintf("--from-ref=%s", upstreamBranch))
-		cliArgs = append(cliArgs, fmt.Sprintf("--to-ref=%s", writeTree))
+		baseArgs = append(baseArgs, fmt.Sprintf("--from-ref=%s", upstreamBranch))
+		baseArgs = append(baseArgs, fmt.Sprintf("--to-ref=%s", writeTree))
 	}
 
-	cmd := exec.Command(
-		"pre-commit",
-		cliArgs...,
-	)
+	// If no specific checks provided, run all checks
+	if len(args.CheckNames) == 0 {
+		return runPreCommit(baseArgs, args.Stream)
+	}
 
-	if args.Stream {
+	// Run each check separately
+	for _, checkName := range args.CheckNames {
+		cliArgs := make([]string, len(baseArgs))
+		copy(cliArgs, baseArgs)
+		cliArgs = append(cliArgs, checkName)
+
+		err := runPreCommit(cliArgs, args.Stream)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func runPreCommit(cliArgs []string, stream bool) error {
+	cmd := exec.Command("pre-commit", cliArgs...)
+
+	if stream {
 		fmt.Printf("$ %s:\n", cmd.String())
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr

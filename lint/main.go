@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func parseArgs(cmd *cobra.Command, _ []string) (lint.ParsedArgs, error) {
+func parseArgs(cmd *cobra.Command, args []string) (lint.ParsedArgs, error) {
 	parsedArgs := lint.ParsedArgs{}
 	parsedArgs.Stream = true
 
@@ -16,6 +16,11 @@ func parseArgs(cmd *cobra.Command, _ []string) (lint.ParsedArgs, error) {
 		return parsedArgs, err
 	}
 	parsedArgs.AllFiles = allFiles
+
+	// Get check names from positional arguments if provided
+	if len(args) > 0 {
+		parsedArgs.CheckNames = args
+	}
 
 	return parsedArgs, nil
 }
@@ -35,8 +40,9 @@ func runE(cmd *cobra.Command, args []string) error {
 
 func generateCommand() *cobra.Command {
 	var rootCmd = &cobra.Command{
-		Use:          "git-lint",
-		Short:        "Run pre-commit checks in this repositoyr.",
+		Use:          "git-lint [check-name...]",
+		Short:        "Run pre-commit checks in this repository.",
+		Long:         "Run pre-commit checks. Optionally specify one or more specific check names to run only those checks.",
 		RunE:         runE,
 		SilenceUsage: true,
 	}
