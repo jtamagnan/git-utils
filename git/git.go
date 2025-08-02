@@ -56,7 +56,7 @@ func (repo *Repository) Head() (*Reference, error) {
 
 // This will be of the form refs/heads/<remove>/<branch>
 func (branch *Reference) TrackingBranch() (string, error) {
-	return branch.repository.ExecGit(
+	return branch.repository.GitExec(
 		"for-each-ref",
 		"--format=%(upstream)",
 		branch.Name().String(),
@@ -67,7 +67,7 @@ func (repo *Repository) GetDefaultBranch() (string, error) {
 	upstream, err := repo.Remote()
 	if err != nil { return "", err }
 
-	return repo.ExecGit(
+	return repo.GitExec(
 		"rev-parse",
 		"--abbrev-ref",
 		fmt.Sprintf("%s/HEAD", upstream),
@@ -75,7 +75,7 @@ func (repo *Repository) GetDefaultBranch() (string, error) {
 }
 
 func (repo *Repository) WriteTree() (string, error) {
-	return repo.ExecGit(
+	return repo.GitExec(
 		"write-tree",
 	)
 }
@@ -84,7 +84,7 @@ func (repo *Repository) WriteTree() (string, error) {
 // Get Config
 //
 func (repo *Repository) GetConfig(key string) (string, error) {
-	return repo.ExecGit(
+	return repo.GitExec(
 		"config",
 		"--get",
 		key,
@@ -100,7 +100,7 @@ func GetConfig(key string) (string, error) {
 //
 // Exec on a repository
 //
-func (repo *Repository) ExecGit(args ...string) (string, error) {
+func (repo *Repository) GitExec(args ...string) (string, error) {
 	workTree, err := repo.Worktree()
 	cmd := exec.Command("git", args...)
 	cmd.Dir = workTree.Filesystem.Root()
@@ -114,3 +114,48 @@ func (repo *Repository) ExecGit(args ...string) (string, error) {
 // TODO(jat): Function to get all of "x" from a list of commits
 // between HEAD and the upstream. We'll want to use this when getting
 // the PR url as well as the "global" PR description
+func (repo *Repository) RefExec(inner func(), parent string) []any {
+	out, err := repo.GitExec(
+		"log",
+		fmt.Sprintf("%s..HEAD", parent),
+		"--pretty=format:%H",
+	)
+	if err != nil {
+		fmt.Printf("Error getting ref exec: %v\n", err)
+		return nil
+	}
+	lines := strings.Split(out, "\n")
+	var results []any
+	for _, line := range lines {
+		if strings.TrimSpace(line) != "" {
+			ref, err := repo.Repository.Reference(plumbing.NewHash(line), true)
+			if err != nil {
+				fmt.Printf("Error getting reference: %v\n", err)
+				continue
+			}
+			results = append(results, &Reference{ref, repo})
+			inner()
+		}
+	}
+	return results
+}
+
+func (repo *Repository) RefSummaries(parent string) []string {
+	out, err := repo.GitExec(
+		"log",
+		fmt.Sprintf("%s..HEAD", parent),
+		"--pretty=format:%s",
+	)
+	if err != nil {
+		fmt.Printf("Error getting summary on refs: %v\n", err)
+		return nil
+	}
+	lines := strings.Split(out, "\n")
+	var summaries []string
+	for _, line := range lines {
+		if strings.TrimSpace(line) != "" {
+			summaries = append(summaries, line)
+		}
+	}
+	return summaries
+}
