@@ -1,0 +1,30 @@
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    # Additional linters beyond the defaults
+    - goimports     # Auto-fix imports
+    - misspell      # Fix typos
+    - gocritic      # Comprehensive Go linter
+    - gosec         # Security issues
+    - unconvert     # Remove unnecessary type conversions
+
+linters-settings:
+  govet:
+    check-shadowing: true
+
+  lll:
+    line-length: 140
+
+  goimports:
+    local-prefixes: github.com/jtamagnan/git-utils
+
+issues:
+  # Be more lenient with test files
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - gosec
+        - gocritic
+        - errcheck
