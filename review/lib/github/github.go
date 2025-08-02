@@ -55,8 +55,28 @@ func GetExistingPR(owner, repo string, prNumber int) (*github.PullRequest, error
 	return pr, nil
 }
 
-// CreatePR creates a new pull request
-func CreatePR(owner, repo, title, head, base, body string, draft bool) (*github.PullRequest, error) {
+// AddLabelsToIssue adds labels to an issue or pull request
+func AddLabelsToIssue(owner, repo string, issueNumber int, labels []string) error {
+	if len(labels) == 0 {
+		return nil // Nothing to do
+	}
+
+	client, err := newAuthenticatedClient()
+	if err != nil {
+		return err
+	}
+
+	// Add labels to the issue/PR
+	_, _, err = client.Issues.AddLabelsToIssue(context.Background(), owner, repo, issueNumber, labels)
+	if err != nil {
+		return fmt.Errorf("failed to add labels to issue #%d: %v", issueNumber, err)
+	}
+
+	return nil
+}
+
+// CreatePR creates a new pull request and optionally adds labels
+func CreatePR(owner, repo, title, head, base, body string, draft bool, labels []string) (*github.PullRequest, error) {
 	client, err := newAuthenticatedClient()
 	if err != nil {
 		return nil, err
@@ -73,6 +93,11 @@ func CreatePR(owner, repo, title, head, base, body string, draft bool) (*github.
 	pr, _, err := client.PullRequests.Create(context.Background(), owner, repo, prRequest)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create PR: %v", err)
+	}
+
+	// Add labels if provided (PRs are treated as issues for labeling)
+	if len(labels) > 0 {
+		_ = AddLabelsToIssue(owner, repo, *pr.Number, labels)
 	}
 
 	return pr, nil

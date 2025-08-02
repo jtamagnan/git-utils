@@ -21,6 +21,7 @@ type ParsedArgs struct {
 	NoVerify    bool
 	OpenBrowser bool
 	Draft       bool
+	Labels      []string
 }
 
 // stripRemotePrefix removes the specific remote prefix from branch names (e.g., "origin/main" -> "main")
@@ -57,8 +58,6 @@ func cleanupRemoteBranch(repo *git.Repository, upstream, remoteBranchName string
 
 // Review performs the main review workflow
 func Review(args ParsedArgs) error {
-	// TODO(jat): Support adding labels
-
 	//
 	// Get current repository
 	//
@@ -190,7 +189,7 @@ func Review(args ParsedArgs) error {
 		// Open the PR
 		//
 		baseBranch := stripRemotePrefix(upstreamBranch, upstream)
-		githubPR, err = githubapi.CreatePR(repoInfo.Owner, repoInfo.Name, prTitle, remoteBranchName, baseBranch, prDescription, args.Draft)
+		githubPR, err = githubapi.CreatePR(repoInfo.Owner, repoInfo.Name, prTitle, remoteBranchName, baseBranch, prDescription, args.Draft, args.Labels)
 		if err != nil {
 			return err
 		}
