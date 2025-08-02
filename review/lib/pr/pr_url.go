@@ -45,4 +45,3 @@ func extractPRNumber(message string) int {
 
 	return 0
 }
-
