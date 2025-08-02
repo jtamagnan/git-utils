@@ -3,12 +3,14 @@ module github.com/jtamagnan/git-utils/review
 go 1.24.1
 
 require (
+	github.com/go-git/go-git/v5 v5.16.0
 	github.com/google/go-github/v71 v71.0.0
 	github.com/jtamagnan/git-utils/editor v0.0.0
 	github.com/jtamagnan/git-utils/git v0.0.0
 	github.com/jtamagnan/git-utils/keychain/lib v0.0.0
 	github.com/jtamagnan/git-utils/lint/lib v0.0.0
 	github.com/spf13/cobra v1.9.1
+	github.com/spf13/viper v1.20.1
 )
 
 replace github.com/jtamagnan/git-utils/editor => ../editor
@@ -29,7 +31,6 @@ require (
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.6.2 // indirect
-	github.com/go-git/go-git/v5 v5.16.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
@@ -45,7 +46,6 @@ require (
 	github.com/spf13/afero v1.12.0 // indirect
 	github.com/spf13/cast v1.7.1 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
-	github.com/spf13/viper v1.20.1 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
