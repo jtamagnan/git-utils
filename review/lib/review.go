@@ -78,25 +78,37 @@ func Review(args ParsedArgs) error {
 	// Use the first element which is the oldest/first commit summary (RefSummaries returns oldest to newest)
 	prTitle := summaries[0]
 
-	// TODO(jat): Don't open a PR if there is already an associated PR
-	// Create the PR
-	client := github.NewClient(nil)
-	prRequest := &github.NewPullRequest{
-		Title: 	github.Ptr(prTitle),
-		Head: 	github.Ptr(developerBranchName.Short()),
-		Base: 	github.Ptr(upstreamBranch),
-		Body: 	github.Ptr(prDescription),
-		Draft: 	github.Ptr(args.Draft),
-	}
-	pr, _, err := client.PullRequests.Create(context.Background(), "owner", "repo", prRequest)
-	if err != nil { return err }
+	// Check if there's already a PR associated with this branch
+	existingPRNumber, err := detectExistingPR(repo, upstreamBranch)
 
-	// Update the oldest commit message with the PR URL
+	var pr *github.PullRequest
+	if err != nil {
+		// No existing PR found, create new PR
+		fmt.Println("No existing PR found, creating new PR")
+		client := github.NewClient(nil)
+		prRequest := &github.NewPullRequest{
+			Title: 	github.Ptr(prTitle),
+			Head: 	github.Ptr(developerBranchName.Short()),
+			Base: 	github.Ptr(upstreamBranch),
+			Body: 	github.Ptr(prDescription),
+			Draft: 	github.Ptr(args.Draft),
+		}
+		pr, _, err = client.PullRequests.Create(context.Background(), "owner", "repo", prRequest)
+		if err != nil { return err }
+		fmt.Printf("Created new PR #%d: %s\n", *pr.Number, *pr.HTMLURL)
+	} else {
+		// Get existing PR (pushing will automatically update it)
+		fmt.Printf("Found existing PR #%d, \n", existingPRNumber)
+		pr, err = getExistingPR(existingPRNumber)
+		if err != nil { return err }
+	}
+
+	// Update the oldest commit message with the PR URL (for new PRs or if URL is missing)
 	err = updateOldestCommitWithPRURL(repo, upstreamBranch, *pr.HTMLURL)
 	if err != nil { return err }
 
-	// Push again with the updated commit message
-	fmt.Println("Pushing updated commit with PR URL to", upstream, developerBranchName.String())
+	// Push again with the updated commit message (this handles both new PRs and updates)
+	fmt.Println("Pushing updated commits to", upstream, developerBranchName.String())
 	_, err = repo.GitExec(
 		"push",
 		"--force",
