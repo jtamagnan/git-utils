@@ -17,12 +17,18 @@ repos:
       - id: mixed-line-ending
         args: ['--fix=lf']
 
-  # Additional Go linting
-  - repo: https://github.com/golangci/golangci-lint
-    rev: v1.54.2
+  # Go formatting and linting
+  - repo: local
     hooks:
-      - id: golangci-lint
-        args:
-          - --timeout=5m
-          - --config=.golangci.yml
+      - id: go-fmt-workspace
+        name: go fmt (per module)
+        entry: bash -c 'for dir in editor git keychain lint review; do echo "Formatting $dir..."; (cd $dir && go fmt ./...) || exit 1; done'
+        language: system
+        files: \.go$
+        pass_filenames: false
+      - id: golangci-lint-workspace
+        name: golangci-lint (per module)
+        entry: bash -c 'for dir in editor git keychain lint review; do echo "Linting $dir..."; (cd $dir && golangci-lint run --config=../.golangci.yml --timeout=5m) || exit 1; done;'
+        language: system
+        files: \.go$
         pass_filenames: false

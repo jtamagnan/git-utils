@@ -101,7 +101,7 @@ func updateCommitMessage(repo *git.Repository, upstreamBranch, commitHash, newMe
 		return nil
 	}
 
-		// Multiple commits: use interactive rebase (much cleaner and preserves uncommitted changes)
+	// Multiple commits: use interactive rebase (much cleaner and preserves uncommitted changes)
 	return updateCommitMessageWithRebase(repo, upstreamBranch, commitHash, newMessage)
 }
 
@@ -116,7 +116,7 @@ func updateCommitMessageWithRebase(repo *git.Repository, upstreamBranch, commitH
 
 	hasUncommittedChanges := strings.TrimSpace(statusOutput) != ""
 
-				if hasUncommittedChanges {
+	if hasUncommittedChanges {
 		// Preserve the exact state using index backup and temporary commits
 
 		// Step 1: Save the current index state as a tree
@@ -137,7 +137,7 @@ func updateCommitMessageWithRebase(repo *git.Repository, upstreamBranch, commitH
 			return fmt.Errorf("error committing all changes: %v", err)
 		}
 
-				// Set up cleanup to restore the exact state using index restoration
+		// Set up cleanup to restore the exact state using index restoration
 		defer func() {
 			// Step 1: Reset to the commit before our temporary commit, putting all changes in index
 			if _, restoreErr := repo.GitExec("reset", "--soft", "HEAD~1"); restoreErr != nil {
@@ -158,7 +158,11 @@ func updateCommitMessageWithRebase(repo *git.Repository, upstreamBranch, commitH
 	if err != nil {
 		return fmt.Errorf("error creating temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			fmt.Printf("Warning: failed to cleanup temp directory: %v\n", err)
+		}
+	}()
 
 	// Create a script that will modify the rebase todo list
 	todoEditorScript := filepath.Join(tempDir, "rebase-todo-editor.sh")
@@ -191,20 +195,20 @@ EOF
 	originalGitSequenceEditor := os.Getenv("GIT_SEQUENCE_EDITOR")
 
 	// Set our custom editors
-	os.Setenv("GIT_SEQUENCE_EDITOR", todoEditorScript)
-	os.Setenv("GIT_EDITOR", messageEditorScript)
+	_ = os.Setenv("GIT_SEQUENCE_EDITOR", todoEditorScript)
+	_ = os.Setenv("GIT_EDITOR", messageEditorScript)
 
 	// Restore original environment after rebase
 	defer func() {
 		if originalGitEditor != "" {
-			os.Setenv("GIT_EDITOR", originalGitEditor)
+			_ = os.Setenv("GIT_EDITOR", originalGitEditor)
 		} else {
-			os.Unsetenv("GIT_EDITOR")
+			_ = os.Unsetenv("GIT_EDITOR")
 		}
 		if originalGitSequenceEditor != "" {
-			os.Setenv("GIT_SEQUENCE_EDITOR", originalGitSequenceEditor)
+			_ = os.Setenv("GIT_SEQUENCE_EDITOR", originalGitSequenceEditor)
 		} else {
-			os.Unsetenv("GIT_SEQUENCE_EDITOR")
+			_ = os.Unsetenv("GIT_SEQUENCE_EDITOR")
 		}
 	}()
 
@@ -212,7 +216,9 @@ EOF
 	_, err = repo.GitExec("rebase", "-i", upstreamBranch)
 	if err != nil {
 		// If rebase fails, try to abort it to leave things in a clean state
-		repo.GitExec("rebase", "--abort")
+		if _, abortErr := repo.GitExec("rebase", "--abort"); abortErr != nil {
+			fmt.Printf("Warning: failed to abort rebase: %v\n", abortErr)
+		}
 		return fmt.Errorf("error during interactive rebase: %v", err)
 	}
 

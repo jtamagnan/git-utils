@@ -11,14 +11,14 @@ func TestGetGitHubTokenSources(t *testing.T) {
 	originalToken := os.Getenv("GITHUB_TOKEN")
 	defer func() {
 		if originalToken != "" {
-			os.Setenv("GITHUB_TOKEN", originalToken)
+			_ = os.Setenv("GITHUB_TOKEN", originalToken)
 		} else {
-			os.Unsetenv("GITHUB_TOKEN")
+			_ = os.Unsetenv("GITHUB_TOKEN")
 		}
 	}()
 
 	// Test fallback to environment variable when keychain fails
-	os.Unsetenv("GITHUB_TOKEN")
+	_ = os.Unsetenv("GITHUB_TOKEN")
 	_, err := GetGitHubToken()
 	if err == nil {
 		t.Log("Token found (this is OK if you have one in keychain)")
@@ -30,7 +30,7 @@ func TestGetGitHubTokenSources(t *testing.T) {
 	}
 
 	// Test environment variable works
-	os.Setenv("GITHUB_TOKEN", "env-token")
+	_ = os.Setenv("GITHUB_TOKEN", "env-token")
 	token, err := GetGitHubToken()
 	if err != nil {
 		t.Errorf("Expected no error when env token is set, but got: %v", err)
@@ -90,14 +90,14 @@ func TestErrorMessageFormat(t *testing.T) {
 	originalToken := os.Getenv("GITHUB_TOKEN")
 	defer func() {
 		if originalToken != "" {
-			os.Setenv("GITHUB_TOKEN", originalToken)
+			_ = os.Setenv("GITHUB_TOKEN", originalToken)
 		} else {
-			os.Unsetenv("GITHUB_TOKEN")
+			_ = os.Unsetenv("GITHUB_TOKEN")
 		}
 	}()
 
 	// Clear environment variable to trigger error
-	os.Unsetenv("GITHUB_TOKEN")
+	_ = os.Unsetenv("GITHUB_TOKEN")
 
 	// This will only fail if keychain also fails (which is expected in test environment)
 	_, err := GetGitHubToken()

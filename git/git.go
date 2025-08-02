@@ -1,9 +1,9 @@
 package git
 
 import (
-	"regexp"
 	"fmt"
 	"os/exec"
+	"regexp"
 	"strings"
 
 	gogit "github.com/go-git/go-git/v5"
@@ -12,7 +12,7 @@ import (
 )
 
 type Repository struct {
-    *gogit.Repository
+	*gogit.Repository
 }
 
 type Reference struct {
@@ -21,9 +21,7 @@ type Reference struct {
 	repository *Repository
 }
 
-//
 // Repository functions
-//
 func GetRepository() (*Repository, error) {
 	repo, err := gogit.PlainOpenWithOptions(
 		".",
@@ -31,17 +29,23 @@ func GetRepository() (*Repository, error) {
 			DetectDotGit: true,
 		},
 	)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 
 	return &Repository{repo}, nil
 }
 
 func (repo *Repository) Remote() (string, error) {
 	branch, err := repo.Head()
-	if err != nil { return "", err }
+	if err != nil {
+		return "", err
+	}
 
 	trackingBranch, err := branch.TrackingBranch()
-	if err != nil { return "", err }
+	if err != nil {
+		return "", err
+	}
 
 	return regexp.MustCompile(`refs/remotes/(.*)/.*`).FindStringSubmatch(trackingBranch)[1], nil
 }
@@ -80,12 +84,12 @@ func ParseRepositoryInfo(remoteURL string) (*RepositoryInfo, error) {
 	return nil, fmt.Errorf("unable to parse GitHub repository info from URL: %s", remoteURL)
 }
 
-//
 // Get branch information
-//
 func (repo *Repository) Head() (*Reference, error) {
 	head, err := repo.Repository.Head()
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	return &Reference{head, repo}, nil
 }
 
@@ -100,7 +104,9 @@ func (branch *Reference) TrackingBranch() (string, error) {
 
 func (repo *Repository) GetDefaultBranch() (string, error) {
 	upstream, err := repo.Remote()
-	if err != nil { return "", err }
+	if err != nil {
+		return "", err
+	}
 
 	return repo.GitExec(
 		"rev-parse",
@@ -115,9 +121,7 @@ func (repo *Repository) WriteTree() (string, error) {
 	)
 }
 
-//
 // Get Config
-//
 func (repo *Repository) GetConfig(key string) (string, error) {
 	return repo.GitExec(
 		"config",
@@ -128,19 +132,24 @@ func (repo *Repository) GetConfig(key string) (string, error) {
 
 func GetConfig(key string) (string, error) {
 	repo, err := GetRepository()
-	if err != nil { return "", err }
+	if err != nil {
+		return "", err
+	}
 	return repo.GetConfig(key)
 }
 
-//
 // Exec on a repository
-//
 func (repo *Repository) GitExec(args ...string) (string, error) {
 	workTree, err := repo.Worktree()
+	if err != nil {
+		return "", fmt.Errorf("failed to get worktree: %v", err)
+	}
 	cmd := exec.Command("git", args...)
 	cmd.Dir = workTree.Filesystem.Root()
 	out, err := cmd.CombinedOutput()
-	if err != nil { return "", fmt.Errorf("Error running git command: `%s` \n %s", cmd.String(), out) }
+	if err != nil {
+		return "", fmt.Errorf("error running git command: `%s` \n %s", cmd.String(), out)
+	}
 
 	return strings.TrimSpace(string(out)), nil
 }
@@ -161,7 +170,7 @@ func RefExec[T any](repo *Repository, inner func(*object.Commit) T, parent strin
 	for _, line := range lines {
 		if strings.TrimSpace(line) != "" {
 			hash := plumbing.NewHash(line)
-			commit, err := repo.Repository.CommitObject(hash)
+			commit, err := repo.CommitObject(hash)
 			if err != nil {
 				fmt.Printf("Error getting commit: %v\n", err)
 				continue

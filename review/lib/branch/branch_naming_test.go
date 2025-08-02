@@ -10,10 +10,10 @@ import (
 func TestGetUserIdentifier(t *testing.T) {
 	// Save original USER env var
 	originalUser := os.Getenv("USER")
-	defer os.Setenv("USER", originalUser)
+	defer func() { _ = os.Setenv("USER", originalUser) }()
 
 	// Test fallback to USER environment variable
-	os.Setenv("USER", "testuser")
+	_ = os.Setenv("USER", "testuser")
 	userID, err := getUserIdentifier()
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -23,7 +23,7 @@ func TestGetUserIdentifier(t *testing.T) {
 	}
 
 	// Test with different user name
-	os.Setenv("USER", "alice")
+	_ = os.Setenv("USER", "alice")
 	userID, err = getUserIdentifier()
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -33,7 +33,7 @@ func TestGetUserIdentifier(t *testing.T) {
 	}
 
 	// Test with empty USER (should return error)
-	os.Setenv("USER", "")
+	_ = os.Setenv("USER", "")
 	userID, err = getUserIdentifier()
 	if err == nil {
 		t.Errorf("Expected error for empty USER, but got userID: '%s'", userID)
@@ -46,10 +46,10 @@ func TestGetUserIdentifier(t *testing.T) {
 func TestGenerateUUIDBranchName(t *testing.T) {
 	// Save original USER env var
 	originalUser := os.Getenv("USER")
-	defer os.Setenv("USER", originalUser)
+	defer func() { _ = os.Setenv("USER", originalUser) }()
 
 	// Set a known user for consistent testing
-	os.Setenv("USER", "testuser")
+	_ = os.Setenv("USER", "testuser")
 
 	branch1, err := GenerateUUIDBranchName()
 	if err != nil {
@@ -71,13 +71,16 @@ func TestGenerateUUIDBranchName(t *testing.T) {
 func TestGenerateUUIDBranchNameWithDifferentUsers(t *testing.T) {
 	// Save original USER env var
 	originalUser := os.Getenv("USER")
-	defer os.Setenv("USER", originalUser)
+	defer func() { _ = os.Setenv("USER", originalUser) }()
 
 	// Test with different users
 	users := []string{"alice", "bob", "charlie"}
 
+	// Compile regex once outside the loop for better performance
+	expectedPattern := regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+
 	for _, user := range users {
-		os.Setenv("USER", user)
+		_ = os.Setenv("USER", user)
 		branch, err := GenerateUUIDBranchName()
 		if err != nil {
 			t.Fatalf("Expected no error for user %s, got: %v", user, err)
@@ -90,12 +93,7 @@ func TestGenerateUUIDBranchNameWithDifferentUsers(t *testing.T) {
 
 		// Verify the UUID part after the user prefix
 		uuidPart := strings.TrimPrefix(branch, expectedPrefix)
-		expectedPattern := `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`
-		matched, err := regexp.MatchString(expectedPattern, uuidPart)
-		if err != nil {
-			t.Fatalf("Failed to compile regex: %v", err)
-		}
-		if !matched {
+		if !expectedPattern.MatchString(uuidPart) {
 			t.Errorf("UUID part doesn't match expected pattern for user %s. Got: %s", user, uuidPart)
 		}
 	}
@@ -104,10 +102,10 @@ func TestGenerateUUIDBranchNameWithDifferentUsers(t *testing.T) {
 func TestGenerateUUIDBranchNameUniqueness(t *testing.T) {
 	// Save original USER env var
 	originalUser := os.Getenv("USER")
-	defer os.Setenv("USER", originalUser)
+	defer func() { _ = os.Setenv("USER", originalUser) }()
 
 	// Set a known user for testing
-	os.Setenv("USER", "testuser")
+	_ = os.Setenv("USER", "testuser")
 
 	// Generate multiple UUIDs and verify they're unique
 	generatedUUIDs := make(map[string]bool)
@@ -126,10 +124,10 @@ func TestGenerateUUIDBranchNameUniqueness(t *testing.T) {
 func TestGenerateUUIDBranchNameError(t *testing.T) {
 	// Save original USER env var
 	originalUser := os.Getenv("USER")
-	defer os.Setenv("USER", originalUser)
+	defer func() { _ = os.Setenv("USER", originalUser) }()
 
 	// Clear USER environment variable
-	os.Setenv("USER", "")
+	_ = os.Setenv("USER", "")
 
 	// Should return error when no user identifier is available
 	branch, err := GenerateUUIDBranchName()

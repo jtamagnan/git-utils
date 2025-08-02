@@ -63,7 +63,9 @@ func Review(args ParsedArgs) error {
 	// Get current repository
 	//
 	repo, err := git.GetRepository()
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	//
 	// Run pre-commit checks unless skipped
@@ -72,25 +74,35 @@ func Review(args ParsedArgs) error {
 		fmt.Println("Skipping pre-commit checks")
 	} else {
 		err = lint.Lint(lint.ParsedArgs{})
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 	}
 
 	//
 	// Get upstream remote and default branch
 	//
 	upstream, err := repo.Remote()
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	upstreamBranch, err := repo.GetDefaultBranch()
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	//
 	// Get repository information from upstream URL
 	//
 	upstreamURL, err := repo.GetRemoteURL(upstream)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	repoInfo, err := git.ParseRepositoryInfo(upstreamURL)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	//
 	// Determine the remote branch name to use and if the PR already
@@ -102,24 +114,32 @@ func Review(args ParsedArgs) error {
 	if err != nil {
 		// No existing PR found, generate UUID branch name for new PR
 		remoteBranchName, err = branch.GenerateUUIDBranchName()
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		isNewPR = true
 		fmt.Printf("No existing PR found, will create new PR with branch: %s\n", remoteBranchName)
 	} else {
 		// Check if the existing PR is still open
 		existingPR, err := githubapi.GetExistingPR(repoInfo.Owner, repoInfo.Name, existingPRNumber)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 
 		if existingPR.State != nil && *existingPR.State == "open" {
 			// Existing open PR found, get the remote branch name from the PR
 			remoteBranchName, err = githubapi.GetRemoteBranchFromPR(repoInfo.Owner, repoInfo.Name, existingPRNumber)
-			if err != nil { return err }
+			if err != nil {
+				return err
+			}
 			isNewPR = false
 			fmt.Printf("Found existing open PR #%d, will update branch: %s\n", existingPRNumber, remoteBranchName)
 		} else {
 			// Existing PR is closed, create a new PR
 			remoteBranchName, err = branch.GenerateUUIDBranchName()
-			if err != nil { return err }
+			if err != nil {
+				return err
+			}
 			isNewPR = true
 			fmt.Printf("Found existing PR #%d but it's closed, will create new PR with branch: %s\n", existingPRNumber, remoteBranchName)
 		}
@@ -130,7 +150,9 @@ func Review(args ParsedArgs) error {
 	//
 	fmt.Printf("Pushing to %s %s\n", upstream, remoteBranchName)
 	_, err = repo.GitExec("push", "--force", upstream, fmt.Sprintf("HEAD:%s", remoteBranchName))
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	// Set up cleanup for new PR branches in case of failure
 	var prCreationSucceeded bool
@@ -157,17 +179,21 @@ func Review(args ParsedArgs) error {
 		prTitle := summaries[0] // Use the oldest (first) commit summary
 
 		//
-		// Get the PR descirption
+		// Get the PR description
 		//
 		prDescription, err := getPRDescription()
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 
 		//
 		// Open the PR
 		//
 		baseBranch := stripRemotePrefix(upstreamBranch, upstream)
 		githubPR, err = githubapi.CreatePR(repoInfo.Owner, repoInfo.Name, prTitle, remoteBranchName, baseBranch, prDescription, args.Draft)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 
 		//
 		// Mark PR creation as successful to prevent branch deletion
@@ -179,21 +205,27 @@ func Review(args ParsedArgs) error {
 		// Update the oldest commit message with the PR URL
 		//
 		err = commit.UpdateOldestCommitWithPRURL(repo, upstreamBranch, *githubPR.HTMLURL)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 
 		//
 		// Push again with the updated commit message
 		//
 		fmt.Printf("Pushing updated commits to %s %s\n", upstream, remoteBranchName)
 		_, err = repo.GitExec("push", "--force", upstream, fmt.Sprintf("HEAD:%s", remoteBranchName))
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 	} else {
 		//
 		// Get the PR
 		//
 		fmt.Printf("Found existing PR #%d\n", existingPRNumber)
 		githubPR, err = githubapi.GetExistingPR(repoInfo.Owner, repoInfo.Name, existingPRNumber)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 	}
 
 	//

@@ -29,7 +29,9 @@ func NewTestRepo(t *testing.T) *TestRepo {
 	cmd := exec.Command("git", "init")
 	cmd.Dir = tempDir
 	if err := cmd.Run(); err != nil {
-		os.RemoveAll(tempDir)
+		if removeErr := os.RemoveAll(tempDir); removeErr != nil {
+			t.Errorf("Failed to cleanup temp dir: %v", removeErr)
+		}
 		t.Fatalf("Failed to init git repo: %v", err)
 	}
 
@@ -45,12 +47,21 @@ func NewTestRepo(t *testing.T) *TestRepo {
 		t.Fatalf("Failed to get current dir: %v", err)
 	}
 
-	os.Chdir(tempDir)
+	if err := os.Chdir(tempDir); err != nil {
+		if removeErr := os.RemoveAll(tempDir); removeErr != nil {
+			t.Errorf("Failed to cleanup temp dir: %v", removeErr)
+		}
+		t.Fatalf("Failed to change to temp dir: %v", err)
+	}
 	repo, err := GetRepository()
-	os.Chdir(oldDir)
+	if chdirErr := os.Chdir(oldDir); chdirErr != nil {
+		t.Errorf("Failed to change back to original dir: %v", chdirErr)
+	}
 
 	if err != nil {
-		os.RemoveAll(tempDir)
+		if removeErr := os.RemoveAll(tempDir); removeErr != nil {
+			t.Errorf("Failed to cleanup temp dir: %v", removeErr)
+		}
 		t.Fatalf("Failed to open test repo: %v", err)
 	}
 
@@ -130,7 +141,7 @@ func (tr *TestRepo) CreateRemoteTrackingBranch(remote, branch string) {
 func (tr *TestRepo) GetCurrentBranch() string {
 	tr.t.Helper()
 	out := tr.GitExec("rev-parse", "--abbrev-ref", "HEAD")
-	return string(out[:len(out)-1]) // Remove trailing newline
+	return out[:len(out)-1] // Remove trailing newline
 }
 
 // InDir executes a function in the context of the test repository directory
@@ -140,7 +151,11 @@ func (tr *TestRepo) InDir(fn func()) {
 	if err != nil {
 		tr.t.Fatalf("Failed to get current dir: %v", err)
 	}
-	defer os.Chdir(oldDir)
+	defer func() {
+		if err := os.Chdir(oldDir); err != nil {
+			tr.t.Errorf("Failed to change back to original dir: %v", err)
+		}
+	}()
 
 	if err := os.Chdir(tr.Dir); err != nil {
 		tr.t.Fatalf("Failed to change to test dir: %v", err)

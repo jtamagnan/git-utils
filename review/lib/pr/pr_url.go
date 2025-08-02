@@ -9,8 +9,6 @@ import (
 	"github.com/jtamagnan/git-utils/git"
 )
 
-
-
 // DetectExistingPR checks all commit messages in the current branch for PR URLs
 // Returns the PR number if found, or an error if no PR URL is detected
 func DetectExistingPR(repo *git.Repository, upstreamBranch string) (int, error) {

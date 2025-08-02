@@ -27,9 +27,9 @@ func GetGitHubToken() (string, error) {
 // GetTokenFromKeychain retrieves the GitHub token from macOS keychain
 func GetTokenFromKeychain() (string, error) {
 	cmd := exec.Command("security", "find-generic-password",
-		"-s", "git-review",           // service name
-		"-a", "github-token",         // account name
-		"-w")                         // return password only
+		"-s", "git-review", // service name
+		"-a", "github-token", // account name
+		"-w") // return password only
 
 	output, err := cmd.Output()
 	if err != nil {
@@ -50,15 +50,15 @@ func StoreTokenInKeychain(token string) error {
 	deleteCmd := exec.Command("security", "delete-generic-password",
 		"-s", "git-review",
 		"-a", "github-token")
-	deleteCmd.Run() // Ignore errors - entry might not exist
+	_ = deleteCmd.Run() // Ignore errors - entry might not exist
 
 	// Add new entry
 	cmd := exec.Command("security", "add-generic-password",
-		"-s", "git-review",                    // service name
-		"-a", "github-token",                  // account name
-		"-l", "GitHub Token for git-review",   // label (shown in Keychain Access)
-		"-D", "application password",          // kind
-		"-w", token)                           // password (the token)
+		"-s", "git-review", // service name
+		"-a", "github-token", // account name
+		"-l", "GitHub Token for git-review", // label (shown in Keychain Access)
+		"-D", "application password", // kind
+		"-w", token) // password (the token)
 
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("security command failed: %v\nOutput: %s", err, output)

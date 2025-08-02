@@ -3,6 +3,8 @@ package github
 import (
 	"os"
 	"testing"
+
+	keychain "github.com/jtamagnan/git-utils/keychain/lib"
 )
 
 func TestGitHubPackageExists(t *testing.T) {
@@ -16,14 +18,14 @@ func TestAuthenticatedClientRequiresToken(t *testing.T) {
 	originalToken := os.Getenv("GITHUB_TOKEN")
 	defer func() {
 		if originalToken != "" {
-			os.Setenv("GITHUB_TOKEN", originalToken)
+			_ = os.Setenv("GITHUB_TOKEN", originalToken)
 		} else {
-			os.Unsetenv("GITHUB_TOKEN")
+			_ = os.Unsetenv("GITHUB_TOKEN")
 		}
 	}()
 
 	// Test with no token (will try keychain first, then env var)
-	os.Unsetenv("GITHUB_TOKEN")
+	_ = os.Unsetenv("GITHUB_TOKEN")
 	client, err := newAuthenticatedClient()
 	if err == nil {
 		t.Error("Expected error when no token is available, but got none")
@@ -33,7 +35,7 @@ func TestAuthenticatedClientRequiresToken(t *testing.T) {
 	}
 
 	// Test with environment variable token
-	os.Setenv("GITHUB_TOKEN", "test-token")
+	_ = os.Setenv("GITHUB_TOKEN", "test-token")
 	client, err = newAuthenticatedClient()
 	if err != nil {
 		t.Errorf("Expected no error when GITHUB_TOKEN is set, but got: %v", err)
@@ -51,15 +53,15 @@ func TestGitHubTokenIntegration(t *testing.T) {
 	originalToken := os.Getenv("GITHUB_TOKEN")
 	defer func() {
 		if originalToken != "" {
-			os.Setenv("GITHUB_TOKEN", originalToken)
+			_ = os.Setenv("GITHUB_TOKEN", originalToken)
 		} else {
-			os.Unsetenv("GITHUB_TOKEN")
+			_ = os.Unsetenv("GITHUB_TOKEN")
 		}
 	}()
 
-	// Test that getGitHubToken delegates to keychain.GetGitHubToken
-	os.Setenv("GITHUB_TOKEN", "test-integration-token")
-	token, err := getGitHubToken()
+	// Test that keychain integration works
+	_ = os.Setenv("GITHUB_TOKEN", "test-integration-token")
+	token, err := keychain.GetGitHubToken()
 	if err != nil {
 		t.Errorf("Expected no error when env token is set, but got: %v", err)
 	}

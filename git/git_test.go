@@ -286,6 +286,7 @@ func TestRefExec(t *testing.T) {
 			// We can now access the commit object here
 			if commit == nil {
 				t.Error("Expected commit to be non-nil")
+				return "" // Return early to avoid nil pointer dereference
 			}
 			// Return the commit hash as the result
 			return commit.Hash.String()

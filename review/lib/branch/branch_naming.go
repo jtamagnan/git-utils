@@ -34,7 +34,9 @@ func GenerateUUIDBranchName() (string, error) {
 
 	// Generate a simple UUID-like string for branch naming
 	bytes := make([]byte, 16)
-	rand.Read(bytes)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", fmt.Errorf("failed to generate random bytes: %v", err)
+	}
 
 	// Format as: user/pr/UUID (8-4-4-4-12 characters)
 	return fmt.Sprintf("%s/pr/%x-%x-%x-%x-%x",

@@ -12,14 +12,14 @@ func TestAuthenticationFailureDemo(t *testing.T) {
 	originalToken := os.Getenv("GITHUB_TOKEN")
 	defer func() {
 		if originalToken != "" {
-			os.Setenv("GITHUB_TOKEN", originalToken)
+			_ = os.Setenv("GITHUB_TOKEN", originalToken)
 		} else {
-			os.Unsetenv("GITHUB_TOKEN")
+			_ = os.Unsetenv("GITHUB_TOKEN")
 		}
 	}()
 
 	// Clear the token to simulate a user without authentication
-	os.Unsetenv("GITHUB_TOKEN")
+	_ = os.Unsetenv("GITHUB_TOKEN")
 
 	// Try to create a PR - should fail with clear error message
 	_, err := CreatePR("testowner", "testrepo", "Test PR", "feature", "main", "Test description", false)

@@ -183,7 +183,7 @@ func TestUncommittedChangesPreservation(t *testing.T) {
 
 		testRepo.RefreshRepo()
 
-				// Create uncommitted changes of different types
+		// Create uncommitted changes of different types
 
 		// 1. Modified but unstaged file
 		testRepo.CreateFile("file1.txt", "modified content1")
@@ -200,7 +200,7 @@ func TestUncommittedChangesPreservation(t *testing.T) {
 
 		// Verify the uncommitted changes exist before the operation
 
-				// Check modified file
+		// Check modified file
 		modifiedContentBytes, err := os.ReadFile(filepath.Join(testRepo.Dir, "file1.txt"))
 		if err != nil {
 			t.Fatalf("Failed to read modified file: %v", err)
@@ -246,7 +246,7 @@ func TestUncommittedChangesPreservation(t *testing.T) {
 
 		// Verify all uncommitted changes are still there
 
-				// 1. Check modified file is still modified
+		// 1. Check modified file is still modified
 		modifiedContentAfterBytes, err := os.ReadFile(filepath.Join(testRepo.Dir, "file1.txt"))
 		if err != nil {
 			t.Fatalf("Failed to read modified file after update: %v", err)

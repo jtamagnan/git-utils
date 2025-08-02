@@ -14,18 +14,18 @@ func TestKeychainIntegrationWorkflow(t *testing.T) {
 	originalToken := os.Getenv("GITHUB_TOKEN")
 	defer func() {
 		if originalToken != "" {
-			os.Setenv("GITHUB_TOKEN", originalToken)
+			_ = os.Setenv("GITHUB_TOKEN", originalToken)
 		} else {
-			os.Unsetenv("GITHUB_TOKEN")
+			_ = os.Unsetenv("GITHUB_TOKEN")
 		}
 	}()
 
 	t.Run("NoTokenAnywhere", func(t *testing.T) {
 		// Clear environment variable
-		os.Unsetenv("GITHUB_TOKEN")
+		_ = os.Unsetenv("GITHUB_TOKEN")
 
 		// Should fail with helpful message about both keychain and env var
-		_, err := getGitHubToken()
+		_, err := keychain.GetGitHubToken()
 		if err == nil {
 			t.Fatal("Expected error when no token is available, but got success")
 		}
@@ -49,10 +49,10 @@ func TestKeychainIntegrationWorkflow(t *testing.T) {
 	t.Run("EnvironmentVariableFallback", func(t *testing.T) {
 		// Set environment variable (keychain will likely fail)
 		testToken := "ghp_test_token_from_env"
-		os.Setenv("GITHUB_TOKEN", testToken)
+		_ = os.Setenv("GITHUB_TOKEN", testToken)
 
 		// Should succeed and return env var token
-		token, err := getGitHubToken()
+		token, err := keychain.GetGitHubToken()
 		if err != nil {
 			t.Fatalf("Expected success when env token is set, but got error: %v", err)
 		}
@@ -64,7 +64,7 @@ func TestKeychainIntegrationWorkflow(t *testing.T) {
 		t.Logf("✅ Environment variable fallback works: token retrieved")
 	})
 
-		t.Run("KeychainAccessAttempt", func(t *testing.T) {
+	t.Run("KeychainAccessAttempt", func(t *testing.T) {
 		// This test just verifies that keychain access is attempted and handles errors gracefully
 		_, err := keychain.GetTokenFromKeychain()
 
