@@ -1,33 +1,15 @@
 package pr
 
 import (
-	"context"
 	"fmt"
 	"regexp"
 	"strconv"
 
 	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/google/go-github/v71/github"
 	"github.com/jtamagnan/git-utils/git"
 )
 
-// GetRemoteBranchFromPR gets the remote branch name from an existing PR
-func GetRemoteBranchFromPR(prNumber int) (string, error) {
-	client := github.NewClient(nil)
 
-	// Get the PR details
-	pr, _, err := client.PullRequests.Get(context.Background(), "owner", "repo", prNumber)
-	if err != nil {
-		return "", fmt.Errorf("failed to get PR #%d: %v", prNumber, err)
-	}
-
-	// Return the head branch name (the branch the PR is coming from)
-	if pr.Head != nil && pr.Head.Ref != nil {
-		return *pr.Head.Ref, nil
-	}
-
-	return "", fmt.Errorf("PR #%d has no head branch information", prNumber)
-}
 
 // DetectExistingPR checks all commit messages in the current branch for PR URLs
 // Returns the PR number if found, or an error if no PR URL is detected
@@ -64,15 +46,3 @@ func extractPRNumber(message string) int {
 	return 0
 }
 
-// GetExistingPR fetches an existing pull request by number
-func GetExistingPR(prNumber int) (*github.PullRequest, error) {
-	client := github.NewClient(nil)
-
-	// Get the PR
-	pr, _, err := client.PullRequests.Get(context.Background(), "owner", "repo", prNumber)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get PR #%d: %v", prNumber, err)
-	}
-
-	return pr, nil
-}
