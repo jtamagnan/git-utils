@@ -75,8 +75,32 @@ func AddLabelsToIssue(owner, repo string, issueNumber int, labels []string) erro
 	return nil
 }
 
-// CreatePR creates a new pull request and optionally adds labels
-func CreatePR(owner, repo, title, head, base, body string, draft bool, labels []string) (*github.PullRequest, error) {
+// RequestReviewers requests reviewers for a pull request
+func RequestReviewers(owner, repo string, prNumber int, reviewers []string) error {
+	if len(reviewers) == 0 {
+		return nil // Nothing to do
+	}
+
+	client, err := newAuthenticatedClient()
+	if err != nil {
+		return err
+	}
+
+	// Request reviewers for the PR
+	reviewersRequest := github.ReviewersRequest{
+		Reviewers: reviewers,
+	}
+
+	_, _, err = client.PullRequests.RequestReviewers(context.Background(), owner, repo, prNumber, reviewersRequest)
+	if err != nil {
+		return fmt.Errorf("failed to request reviewers for PR #%d: %v", prNumber, err)
+	}
+
+	return nil
+}
+
+// CreatePR creates a new pull request and optionally adds labels and reviewers
+func CreatePR(owner, repo, title, head, base, body string, draft bool, labels []string, reviewers []string) (*github.PullRequest, error) {
 	client, err := newAuthenticatedClient()
 	if err != nil {
 		return nil, err
@@ -98,6 +122,14 @@ func CreatePR(owner, repo, title, head, base, body string, draft bool, labels []
 	// Add labels if provided (PRs are treated as issues for labeling)
 	if len(labels) > 0 {
 		_ = AddLabelsToIssue(owner, repo, *pr.Number, labels)
+	}
+
+	// Request reviewers if provided
+	if len(reviewers) > 0 {
+		err = RequestReviewers(owner, repo, *pr.Number, reviewers)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return pr, nil

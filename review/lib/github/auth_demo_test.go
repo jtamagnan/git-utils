@@ -22,7 +22,7 @@ func TestAuthenticationFailureDemo(t *testing.T) {
 	_ = os.Unsetenv("GITHUB_TOKEN")
 
 	// Try to create a PR - should fail with clear error message
-	_, err := CreatePR("testowner", "testrepo", "Test PR", "feature", "main", "Test description", false, []string{})
+	_, err := CreatePR("testowner", "testrepo", "Test PR", "feature", "main", "Test description", false, []string{}, []string{})
 
 	if err == nil {
 		t.Fatal("Expected authentication error when GITHUB_TOKEN is not set, but got success")

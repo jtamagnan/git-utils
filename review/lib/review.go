@@ -22,6 +22,7 @@ type ParsedArgs struct {
 	OpenBrowser bool
 	Draft       bool
 	Labels      []string
+	Reviewers   []string
 }
 
 // stripRemotePrefix removes the specific remote prefix from branch names (e.g., "origin/main" -> "main")
@@ -189,7 +190,7 @@ func Review(args ParsedArgs) error {
 		// Open the PR
 		//
 		baseBranch := stripRemotePrefix(upstreamBranch, upstream)
-		githubPR, err = githubapi.CreatePR(repoInfo.Owner, repoInfo.Name, prTitle, remoteBranchName, baseBranch, prDescription, args.Draft, args.Labels)
+		githubPR, err = githubapi.CreatePR(repoInfo.Owner, repoInfo.Name, prTitle, remoteBranchName, baseBranch, prDescription, args.Draft, args.Labels, args.Reviewers)
 		if err != nil {
 			return err
 		}

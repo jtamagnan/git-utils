@@ -13,6 +13,7 @@ func TestParsedArgsStructure(t *testing.T) {
 		OpenBrowser: false,
 		Draft:       true,
 		Labels:      []string{"test", "label"},
+		Reviewers:   []string{"alice", "bob"},
 	}
 
 	if !args.NoVerify {
@@ -29,5 +30,11 @@ func TestParsedArgsStructure(t *testing.T) {
 	}
 	if args.Labels[0] != "test" || args.Labels[1] != "label" {
 		t.Errorf("Expected ['test', 'label'], got %v", args.Labels)
+	}
+	if len(args.Reviewers) != 2 {
+		t.Errorf("Expected 2 reviewers, got %d", len(args.Reviewers))
+	}
+	if args.Reviewers[0] != "alice" || args.Reviewers[1] != "bob" {
+		t.Errorf("Expected ['alice', 'bob'], got %v", args.Reviewers)
 	}
 }

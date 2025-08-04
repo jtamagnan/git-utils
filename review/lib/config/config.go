@@ -124,6 +124,13 @@ var flagConfigs = []FlagConfig{
 		Default:     CommaString{},
 		Description: "Comma-separated list of labels to add to the PR (e.g., 'bug,enhancement')",
 	},
+	{
+		Name:        "reviewers",
+		Shorthand:   "r",
+		Type:        "commastring",
+		Default:     CommaString{},
+		Description: "Comma-separated list of reviewers to request for the PR (e.g., 'alice,bob')",
+	},
 }
 
 // splitAndTrim splits a comma-separated string and trims whitespace from each element
@@ -181,12 +188,19 @@ func InitConfig() {
 // LoadProjectConfig reads project-specific settings that ARE allowed per repository
 func LoadProjectConfig() {
 	// Default reviewers for this project
-	getGitConfigList("review.default-reviewers", func(reviewers []string) {
-		viper.Set("project.default-reviewers", reviewers)
+	getGitConfigList("review.defaultReviewers", func(reviewers []string) {
+		// Merge with existing reviewers (command-line reviewers take precedence)
+		existingReviewers := viper.GetStringSlice("reviewers")
+
+		// Use CommaString for clean merging without duplicates
+		allReviewers := FromStringSlice(existingReviewers)
+		allReviewers.Append(reviewers...)
+
+		viper.Set("reviewers", allReviewers.ToStringSlice())
 	})
 
 	// Additional project-specific labels (these are ADDED to user labels, not replaced)
-	getGitConfigList("review.labels", func(projectLabels []string) {
+	getGitConfigList("review.projectLabels", func(projectLabels []string) {
 		existingLabels := viper.GetStringSlice("labels")
 
 		// Use CommaString for clean merging without duplicates
@@ -197,7 +211,7 @@ func LoadProjectConfig() {
 	})
 
 	// Custom branch prefix for this project
-	getGitConfigString("review.branch-prefix", func(branchPrefix string) {
+	getGitConfigString("review.branchPrefix", func(branchPrefix string) {
 		viper.Set("project.branch-prefix", branchPrefix)
 	})
 
@@ -225,12 +239,23 @@ func ParseArgs(cmd *cobra.Command, _ []string) (review.ParsedArgs, error) {
 		}
 	}
 
+	// Handle CommaString parsing for reviewers
+	// If reviewers was provided as a comma-separated string via command line, parse it
+	if cmd.Flags().Changed("reviewers") {
+		reviewerStr := viper.GetString("reviewers")
+		if reviewerStr != "" {
+			reviewers := ParseCommaString(reviewerStr).ToStringSlice()
+			viper.Set("reviewers", reviewers)
+		}
+	}
+
 	// Use flag names from configuration to get values
 	parsedArgs := review.ParsedArgs{
 		NoVerify:    viper.GetBool("no-verify"),
 		OpenBrowser: viper.GetBool("open-browser"),
 		Draft:       viper.GetBool("draft"),
 		Labels:      viper.GetStringSlice("labels"),
+		Reviewers:   viper.GetStringSlice("reviewers"),
 	}
 
 	return parsedArgs, nil

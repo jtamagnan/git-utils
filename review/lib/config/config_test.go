@@ -217,7 +217,7 @@ func TestCommandFlags(t *testing.T) {
 	SetupFlags(cmd)
 
 	// Test that all expected flags are present
-	expectedFlags := []string{"no-verify", "open-browser", "draft", "labels"}
+	expectedFlags := []string{"no-verify", "open-browser", "draft", "labels", "reviewers"}
 
 	for _, flagName := range expectedFlags {
 		flag := cmd.Flags().Lookup(flagName)
@@ -264,6 +264,7 @@ func TestEnvironmentVariableSupport(t *testing.T) {
 	t.Setenv("REVIEW_DRAFT", "true")
 	t.Setenv("REVIEW_NO_VERIFY", "true")
 	t.Setenv("REVIEW_LABELS", "env-test,automated")
+	t.Setenv("REVIEW_REVIEWERS", "alice,bob")
 
 	// Initialize config which should pick up env vars
 	InitConfig()
@@ -283,6 +284,98 @@ func TestEnvironmentVariableSupport(t *testing.T) {
 
 	if viper.GetString("labels") != "env-test,automated" {
 		t.Errorf("Expected labels to be 'env-test,automated' from env var, got: %s", viper.GetString("labels"))
+	}
+
+	if viper.GetString("reviewers") != "alice,bob" {
+		t.Errorf("Expected reviewers to be 'alice,bob' from env var, got: %s", viper.GetString("reviewers"))
+	}
+}
+
+func TestReviewersParsing(t *testing.T) {
+	tests := []struct {
+		name              string
+		reviewersFlag     string
+		expectedReviewers []string
+		description       string
+	}{
+		{
+			name:              "NoReviewers",
+			reviewersFlag:     "",
+			expectedReviewers: nil,
+			description:       "Empty reviewers flag should result in nil slice",
+		},
+		{
+			name:              "SingleReviewer",
+			reviewersFlag:     "alice",
+			expectedReviewers: []string{"alice"},
+			description:       "Single reviewer should be parsed correctly",
+		},
+		{
+			name:              "MultipleReviewers",
+			reviewersFlag:     "alice,bob,charlie",
+			expectedReviewers: []string{"alice", "bob", "charlie"},
+			description:       "Multiple reviewers should be split by comma",
+		},
+		{
+			name:              "ReviewersWithSpaces",
+			reviewersFlag:     "alice, bob , charlie ",
+			expectedReviewers: []string{"alice", "bob", "charlie"},
+			description:       "Reviewers with spaces should be trimmed",
+		},
+		{
+			name:              "EmptyReviewersInList",
+			reviewersFlag:     "alice,,bob",
+			expectedReviewers: []string{"alice", "bob"},
+			description:       "Empty reviewers should be filtered out",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Reset viper for each test
+			viper.Reset()
+			InitConfig()
+
+			// Create a test command
+			cmd := &cobra.Command{Use: "test"}
+			SetupFlags(cmd)
+
+			// Set the reviewers flag
+			var args []string
+			if tt.reviewersFlag != "" {
+				args = []string{"--reviewers", tt.reviewersFlag}
+			} else {
+				args = []string{}
+			}
+
+			// Set the arguments and parse flags
+			cmd.SetArgs(args)
+			err := cmd.ParseFlags(args)
+			if err != nil {
+				t.Fatalf("Failed to parse flags: %v", err)
+			}
+
+			// Call ParseArgs to test our parsing logic
+			var parsedArgs review.ParsedArgs
+			parsedArgs, err = ParseArgs(cmd, []string{})
+			if err != nil {
+				t.Fatalf("%s: ParseArgs failed: %v", tt.description, err)
+			}
+
+			// Check the parsed reviewers
+			if len(parsedArgs.Reviewers) != len(tt.expectedReviewers) {
+				t.Errorf("%s: expected %d reviewers, got %d", tt.description, len(tt.expectedReviewers), len(parsedArgs.Reviewers))
+				t.Errorf("Expected: %v", tt.expectedReviewers)
+				t.Errorf("Got: %v", parsedArgs.Reviewers)
+				return
+			}
+
+			for i, expected := range tt.expectedReviewers {
+				if i < len(parsedArgs.Reviewers) && parsedArgs.Reviewers[i] != expected {
+					t.Errorf("%s: expected reviewer %d to be %q, got %q", tt.description, i, expected, parsedArgs.Reviewers[i])
+				}
+			}
+		})
 	}
 }
 

@@ -76,7 +76,7 @@ func TestCreatePRWithLabels(t *testing.T) {
 
 	// We can't make actual API calls in tests, but we can verify the function
 	// accepts the correct parameters without error (until it tries to authenticate)
-	_, err := CreatePR("test-owner", "test-repo", "Test Title", "feature-branch", "main", "Test description", false, testLabels)
+	_, err := CreatePR("test-owner", "test-repo", "Test Title", "feature-branch", "main", "Test description", false, testLabels, []string{})
 
 	// We expect this to fail due to authentication, but the error should be about
 	// authentication, not about function signature or parameter parsing
