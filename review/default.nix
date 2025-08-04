@@ -8,9 +8,9 @@ stdenv.mkDerivation {
 
   buildPhase = ''
     runHook preBuild
-    cd review
     export HOME=$(mktemp -d)
-    go build -o git-review
+    # Build from workspace root so module resolution works properly
+    go build -o git-review ./review
     runHook postBuild
   '';
 
