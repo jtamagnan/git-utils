@@ -1,6 +1,7 @@
 package github
 
 import (
+	keychain "github.com/jtamagnan/git-utils/keychain/lib"
 	"os"
 	"strings"
 	"testing"
@@ -8,7 +9,10 @@ import (
 
 // TestAuthenticationFailureDemo demonstrates the authentication behavior
 func TestAuthenticationFailureDemo(t *testing.T) {
-	// Save original GITHUB_TOKEN
+	// This test demonstrates what happens when no GitHub token is available
+	// Note: If you have tokens in your keychain, this test may not behave as expected
+
+	// Unset environment variable to force using keychain (if available)
 	originalToken := os.Getenv("GITHUB_TOKEN")
 	defer func() {
 		if originalToken != "" {
@@ -18,10 +22,30 @@ func TestAuthenticationFailureDemo(t *testing.T) {
 		}
 	}()
 
-	// Clear the token to simulate a user without authentication
 	_ = os.Unsetenv("GITHUB_TOKEN")
 
-	// Try to create a PR - should fail with clear error message
+	// Check if we have a keychain token
+	if keychain.HasExistingToken() {
+		t.Log("Keychain token exists - this test will demonstrate API calls with authentication")
+		t.Log("The calls will fail with 404 (not found) rather than authentication errors")
+
+		// With authentication, we'll get 404 errors for non-existent repos
+		_, err := CreatePR("testowner", "testrepo", "Test PR", "feature", "main", "Test description", false, []string{}, []string{})
+		if err == nil {
+			t.Fatal("Expected error for non-existent repository, but got success")
+		}
+
+		if strings.Contains(err.Error(), "404 Not Found") {
+			t.Logf("Expected 404 error for non-existent repo (authentication worked): %v", err)
+		} else {
+			t.Errorf("Expected 404 error, but got: %v", err)
+		}
+		return
+	}
+
+	// No keychain token - test actual authentication failure
+	t.Log("No keychain token found - testing authentication failure scenarios")
+
 	_, err := CreatePR("testowner", "testrepo", "Test PR", "feature", "main", "Test description", false, []string{}, []string{})
 
 	if err == nil {
