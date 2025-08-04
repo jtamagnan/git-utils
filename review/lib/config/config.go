@@ -131,6 +131,13 @@ var flagConfigs = []FlagConfig{
 		Default:     CommaString{},
 		Description: "Comma-separated list of reviewers to request for the PR (e.g., 'alice,bob')",
 	},
+	{
+		Name:        "stream",
+		Shorthand:   "s",
+		Type:        "bool",
+		Default:     false,
+		Description: "Stream pre-commit check output in real-time",
+	},
 }
 
 // splitAndTrim splits a comma-separated string and trims whitespace from each element
@@ -251,6 +258,7 @@ func ParseArgs(cmd *cobra.Command, _ []string) (review.ParsedArgs, error) {
 		Draft:       viper.GetBool("draft"),
 		Labels:      viper.GetStringSlice("labels"),
 		Reviewers:   viper.GetStringSlice("reviewers"),
+		Stream:      viper.GetBool("stream"),
 	}
 
 	return parsedArgs, nil

@@ -23,6 +23,7 @@ type ParsedArgs struct {
 	Draft       bool
 	Labels      []string
 	Reviewers   []string
+	Stream      bool
 }
 
 // stripRemotePrefix removes the specific remote prefix from branch names (e.g., "origin/main" -> "main")
@@ -73,7 +74,8 @@ func Review(args ParsedArgs) error {
 	if args.NoVerify {
 		fmt.Println("Skipping pre-commit checks")
 	} else {
-		err = lint.Lint(lint.ParsedArgs{})
+		fmt.Println("Running pre-commit checks...")
+		err = lint.Lint(lint.ParsedArgs{Stream: args.Stream})
 		if err != nil {
 			return err
 		}
