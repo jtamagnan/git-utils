@@ -296,7 +296,7 @@ func TestUncommittedChangesPreservation(t *testing.T) {
 			t.Errorf("Staged file staged.txt no longer shows as staged in git status")
 		}
 
-		t.Log("✅ All uncommitted changes preserved after commit message update")
+		t.Log("All uncommitted changes preserved after commit message update")
 	})
 }
 
@@ -458,6 +458,6 @@ func TestStagedChangesPreservation(t *testing.T) {
 			}
 		}
 
-		t.Log("✅ All staging states perfectly preserved after commit message update")
+		t.Log("All staging states perfectly preserved after commit message update")
 	})
 }

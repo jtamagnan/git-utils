@@ -120,7 +120,7 @@ func TestErrorMessageFormat(t *testing.T) {
 			t.Errorf("Expected error to mention correct keychain command, got: %v", err)
 		}
 
-		t.Logf("✅ Proper error message format: %v", err)
+		t.Logf("Proper error message format: %v", err)
 	} else {
 		t.Log("Token found in keychain - error message test skipped")
 	}

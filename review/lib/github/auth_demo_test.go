@@ -33,7 +33,7 @@ func TestAuthenticationFailureDemo(t *testing.T) {
 		t.Errorf("Expected error message to contain '%s', but got: %v", expectedMessage, err)
 	}
 
-	t.Logf("✅ Correct authentication failure: %v", err)
+	t.Logf("Correct authentication failure: %v", err)
 
 	// Try to get existing PR - should also fail
 	_, err = GetExistingPR("testowner", "testrepo", 123)
@@ -46,7 +46,7 @@ func TestAuthenticationFailureDemo(t *testing.T) {
 		t.Errorf("Expected error message to contain '%s', but got: %v", expectedMessage, err)
 	}
 
-	t.Logf("✅ Correct authentication failure for GetExistingPR: %v", err)
+	t.Logf("Correct authentication failure for GetExistingPR: %v", err)
 
 	// Try to get remote branch - should also fail
 	_, err = GetRemoteBranchFromPR("testowner", "testrepo", 123)
@@ -59,5 +59,5 @@ func TestAuthenticationFailureDemo(t *testing.T) {
 		t.Errorf("Expected error message to contain '%s', but got: %v", expectedMessage, err)
 	}
 
-	t.Logf("✅ Correct authentication failure for GetRemoteBranchFromPR: %v", err)
+	t.Logf("Correct authentication failure for GetRemoteBranchFromPR: %v", err)
 }

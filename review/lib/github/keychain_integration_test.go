@@ -43,7 +43,7 @@ func TestKeychainIntegrationWorkflow(t *testing.T) {
 			t.Errorf("Expected error to mention GITHUB_TOKEN option, got: %v", err)
 		}
 
-		t.Logf("✅ Proper error when no token available: %v", err)
+		t.Logf("Proper error when no token available: %v", err)
 	})
 
 	t.Run("EnvironmentVariableFallback", func(t *testing.T) {
@@ -61,7 +61,7 @@ func TestKeychainIntegrationWorkflow(t *testing.T) {
 			t.Errorf("Expected token '%s' from environment, but got: %s", testToken, token)
 		}
 
-		t.Logf("✅ Environment variable fallback works: token retrieved")
+		t.Logf("Environment variable fallback works: token retrieved")
 	})
 
 	t.Run("KeychainAccessAttempt", func(t *testing.T) {
@@ -69,13 +69,13 @@ func TestKeychainIntegrationWorkflow(t *testing.T) {
 		_, err := keychain.GetTokenFromKeychain()
 
 		// We expect this to fail in most test environments, which is fine
-		t.Logf("📝 Keychain access result: %v", err)
+		t.Logf("Keychain access result: %v", err)
 
 		// The important thing is that it doesn't crash or hang
 		if err != nil {
-			t.Logf("✅ Keychain access failed gracefully (expected in test environment)")
+			t.Logf("Keychain access failed gracefully (expected in test environment)")
 		} else {
-			t.Logf("🔑 Keychain token found (you have one set up)")
+			t.Logf("Keychain token found (you have one set up)")
 		}
 	})
 }
@@ -85,7 +85,7 @@ func TestKeychainSecurityCommandFormat(t *testing.T) {
 	// We can't easily test the actual security command without setting up keychain entries,
 	// but we can verify the command structure would be correct
 
-	t.Log("🔐 Keychain integration uses macOS security command with:")
+	t.Log("Keychain integration uses macOS security command with:")
 	t.Log("   Service: git-review")
 	t.Log("   Account: github-token")
 	t.Log("   Command: security find-generic-password -s git-review -a github-token -w")

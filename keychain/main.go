@@ -1,12 +1,10 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"runtime"
 	"strings"
-	"syscall"
 
 	keychain "github.com/jtamagnan/git-utils/keychain/lib"
 	"github.com/spf13/cobra"
@@ -14,81 +12,75 @@ import (
 )
 
 func runE(cmd *cobra.Command, args []string) error {
-	fmt.Println("🔐 GitHub Token Keychain Setup for git-review")
+	fmt.Println("GitHub Token Keychain Setup for git-review")
 	fmt.Println()
 
-	// Check if we're on macOS
-	if !isMacOS() {
-		fmt.Println("❌ This tool is only supported on macOS")
-		fmt.Println("Please use the GITHUB_TOKEN environment variable instead.")
+	if runtime.GOOS != "darwin" {
+		fmt.Println("This tool is only supported on macOS")
 		return fmt.Errorf("macOS required")
 	}
 
 	// Check if token already exists
 	if keychain.HasExistingToken() {
-		fmt.Println("🔍 Found existing GitHub token in keychain.")
-		fmt.Print("Do you want to update it? (y/N): ")
+		fmt.Println("GitHub token already found in keychain.")
 
-		reader := bufio.NewReader(os.Stdin)
-		response, _ := reader.ReadString('\n')
-		response = strings.TrimSpace(strings.ToLower(response))
+		// Prompt user if they want to keep it or replace it
+		fmt.Print("Do you want to keep the existing token? (y/n): ")
+		var response string
+		_, _ = fmt.Scanln(&response)
 
-		if response != "y" && response != "yes" {
-			fmt.Println("✅ Keeping existing token.")
+		if strings.ToLower(response) == "y" || strings.ToLower(response) == "yes" {
+			fmt.Println("Keeping existing token.")
 			return nil
 		}
 	}
 
-	// Prompt for token
+	// Prompt user to create token
+	fmt.Println("Please create a GitHub Personal Access Token:")
+	fmt.Println("1. Go to: https://github.com/settings/tokens")
+	fmt.Println("2. Click 'Generate new token' -> 'Generate new token (classic)'")
+	fmt.Println("3. Give it a descriptive name (e.g., 'git-review CLI')")
+	fmt.Println("4. Select scopes: 'repo' (for private repos) or 'public_repo' (for public only)")
+	fmt.Println("5. Click 'Generate token' and copy the token")
 	fmt.Println()
-	fmt.Println("📝 Please create a GitHub Personal Access Token:")
-	fmt.Println("   1. Go to: https://github.com/settings/tokens")
-	fmt.Println("   2. Click 'Generate new token (classic)'")
-	fmt.Println("   3. Select scope: 'repo' (Full control of private repositories)")
-	fmt.Println("   4. Copy the generated token")
-	fmt.Println()
+	fmt.Print("Enter your GitHub token (input will be hidden): ")
 
-	fmt.Print("🔑 Enter your GitHub token (input will be hidden): ")
-
-	// Read token securely (hidden input)
-	tokenBytes, err := term.ReadPassword(syscall.Stdin)
+	// Read token from stdin (hidden input)
+	tokenBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
+	fmt.Println() // New line after hidden input
 	if err != nil {
-		return fmt.Errorf("error reading token: %v", err)
+		return fmt.Errorf("failed to read token: %v", err)
 	}
 
 	token := strings.TrimSpace(string(tokenBytes))
-	fmt.Println() // New line after hidden input
-
 	if token == "" {
 		return fmt.Errorf("no token provided")
 	}
 
-	// Validate token format (GitHub tokens start with ghp_, gho_, ghu_, ghs_, or ghr_)
+	// Validate token format using the keychain library function
 	if !keychain.IsValidGitHubToken(token) {
-		fmt.Println("⚠️  Warning: Token doesn't match expected GitHub format (should start with ghp_, gho_, etc.)")
-		fmt.Print("Continue anyway? (y/N): ")
-
-		reader := bufio.NewReader(os.Stdin)
-		response, _ := reader.ReadString('\n')
-		response = strings.TrimSpace(strings.ToLower(response))
-
-		if response != "y" && response != "yes" {
-			return fmt.Errorf("cancelled by user")
+		fmt.Println("Warning: Token doesn't match expected GitHub format (should start with ghp_, gho_, etc.)")
+		fmt.Print("Continue anyway? (y/n): ")
+		var response string
+		_, _ = fmt.Scanln(&response)
+		if strings.ToLower(response) != "y" && strings.ToLower(response) != "yes" {
+			return fmt.Errorf("token storage cancelled")
 		}
 	}
 
 	// Store in keychain
-	if err := keychain.StoreTokenInKeychain(token); err != nil {
+	err = keychain.StoreTokenInKeychain(token)
+	if err != nil {
 		return fmt.Errorf("failed to store token in keychain: %v", err)
 	}
 
-	fmt.Println("✅ GitHub token successfully stored in keychain!")
+	fmt.Println("GitHub token successfully stored in keychain!")
 	fmt.Println()
-	fmt.Println("🚀 You can now use git-review without setting GITHUB_TOKEN:")
-	fmt.Println("   git review")
+	fmt.Println("You can now use git-review without setting GITHUB_TOKEN:")
+	fmt.Println("  git review")
 	fmt.Println()
-	fmt.Println("🔧 To update the token later, run this tool again:")
-	fmt.Println("   git keychain")
+	fmt.Println("To update the token later, run this tool again:")
+	fmt.Println("  git keychain")
 
 	return nil
 }
@@ -115,8 +107,4 @@ func main() {
 	if err != nil {
 		os.Exit(1)
 	}
-}
-
-func isMacOS() bool {
-	return runtime.GOOS == "darwin"
 }
