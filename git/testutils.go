@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -80,13 +81,23 @@ func (tr *TestRepo) Cleanup() {
 // GitExec runs a git command in the test repository (public for external use)
 func (tr *TestRepo) GitExec(args ...string) string {
 	tr.t.Helper()
+	out, err := tr.GitExecWithError(args...)
+	if err != nil {
+		tr.t.Fatalf("Git command failed: %v", err)
+	}
+	return out
+}
+
+// GitExecWithError runs a git command in the test repository and returns both output and error
+func (tr *TestRepo) GitExecWithError(args ...string) (string, error) {
+	tr.t.Helper()
 	cmd := exec.Command("git", args...)
 	cmd.Dir = tr.Dir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		tr.t.Fatalf("Git command failed: %s\nOutput: %s", cmd.String(), out)
+		return string(out), fmt.Errorf("git command failed: %s\nOutput: %s", cmd.String(), out)
 	}
-	return string(out)
+	return strings.TrimSpace(string(out)), nil
 }
 
 // CreateFile creates a file with given content

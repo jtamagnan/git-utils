@@ -142,6 +142,178 @@ func TestGetConfig(t *testing.T) {
 	})
 }
 
+func TestGitConfigScopes(t *testing.T) {
+	testRepo := NewTestRepo(t)
+	defer testRepo.Cleanup()
+
+	testRepo.InDir(func() {
+		// Test local repository config (highest precedence)
+		testRepo.GitExec("config", "review.test-key", "local-value")
+
+		value, err := testRepo.Repo.GetConfig("review.test-key")
+		if err != nil {
+			t.Fatalf("Failed to get local config: %v", err)
+		}
+		if value != "local-value" {
+			t.Errorf("Expected 'local-value', got %q", value)
+		}
+
+		// Test that our review config keys work
+		testRepo.GitExec("config", "review.default-reviewers", "alice,bob")
+		testRepo.GitExec("config", "review.project-labels", "test,integration")
+		testRepo.GitExec("config", "review.branch-prefix", "feature")
+
+		reviewers, err := testRepo.Repo.GetConfig("review.default-reviewers")
+		if err != nil {
+			t.Fatalf("Failed to get reviewers config: %v", err)
+		}
+		if reviewers != "alice,bob" {
+			t.Errorf("Expected 'alice,bob', got %q", reviewers)
+		}
+
+		labels, err := testRepo.Repo.GetConfig("review.project-labels")
+		if err != nil {
+			t.Fatalf("Failed to get labels config: %v", err)
+		}
+		if labels != "test,integration" {
+			t.Errorf("Expected 'test,integration', got %q", labels)
+		}
+
+		branchPrefix, err := testRepo.Repo.GetConfig("review.branch-prefix")
+		if err != nil {
+			t.Fatalf("Failed to get branch prefix config: %v", err)
+		}
+		if branchPrefix != "feature" {
+			t.Errorf("Expected 'feature', got %q", branchPrefix)
+		}
+	})
+}
+
+func TestGitConfigGlobalScope(t *testing.T) {
+	testRepo := NewTestRepo(t)
+	defer testRepo.Cleanup()
+
+	testRepo.InDir(func() {
+		// Set a global git config value for testing
+		// Note: This will actually set a global config value on the test system
+		// We use a test-specific key to avoid conflicts
+		testKey := "review.test-global-key"
+		testValue := "global-test-value"
+
+		// Set global config
+		_, err := testRepo.GitExecWithError("config", "--global", testKey, testValue)
+		if err != nil {
+			if strings.Contains(err.Error(), "Permission denied") || strings.Contains(err.Error(), "could not lock") {
+				t.Skipf("Cannot modify global git config (permission denied): %v", err)
+			}
+			t.Fatalf("Failed to set global config: %v", err)
+		}
+
+		// Clean up global config after test
+		defer func() {
+			_, _ = testRepo.GitExecWithError("config", "--global", "--unset", testKey)
+		}()
+
+		// Verify we can read the global config
+		value, err := testRepo.Repo.GetConfig(testKey)
+		if err != nil {
+			t.Fatalf("Failed to get global config: %v", err)
+		}
+		if value != testValue {
+			t.Errorf("Expected %q, got %q", testValue, value)
+		}
+
+		// Test that local config overrides global config
+		localValue := "local-override-value"
+		testRepo.GitExec("config", testKey, localValue)
+
+		value, err = testRepo.Repo.GetConfig(testKey)
+		if err != nil {
+			t.Fatalf("Failed to get config after local override: %v", err)
+		}
+		if value != localValue {
+			t.Errorf("Expected local value %q to override global, but got %q", localValue, value)
+		}
+
+		// Clean up local config
+		testRepo.GitExec("config", "--unset", testKey)
+
+		// Verify global config is still accessible after removing local
+		value, err = testRepo.Repo.GetConfig(testKey)
+		if err != nil {
+			t.Fatalf("Failed to get global config after removing local: %v", err)
+		}
+		if value != testValue {
+			t.Errorf("Expected global value %q after removing local, but got %q", testValue, value)
+		}
+	})
+}
+
+func TestGitConfigPrecedence(t *testing.T) {
+	testRepo := NewTestRepo(t)
+	defer testRepo.Cleanup()
+
+	testRepo.InDir(func() {
+		testKey := "review.test-precedence"
+		globalValue := "global-value"
+		localValue := "local-value"
+
+		// Set global config first
+		_, err := testRepo.GitExecWithError("config", "--global", testKey, globalValue)
+		if err != nil {
+			if strings.Contains(err.Error(), "Permission denied") || strings.Contains(err.Error(), "could not lock") {
+				t.Skipf("Cannot modify global git config (permission denied): %v", err)
+			}
+			t.Fatalf("Failed to set global config: %v", err)
+		}
+		defer func() {
+			_, _ = testRepo.GitExecWithError("config", "--global", "--unset", testKey)
+		}()
+
+		// Verify global config is read
+		value, err := testRepo.Repo.GetConfig(testKey)
+		if err != nil {
+			t.Fatalf("Failed to get global config: %v", err)
+		}
+		if value != globalValue {
+			t.Errorf("Expected global value %q, got %q", globalValue, value)
+		}
+
+		// Set local config (should override global)
+		testRepo.GitExec("config", testKey, localValue)
+
+		// Verify local config takes precedence
+		value, err = testRepo.Repo.GetConfig(testKey)
+		if err != nil {
+			t.Fatalf("Failed to get config: %v", err)
+		}
+		if value != localValue {
+			t.Errorf("Expected local value %q to take precedence, got %q", localValue, value)
+		}
+
+		// Test our review config keys with precedence
+		_, err = testRepo.GitExecWithError("config", "--global", "review.default-reviewers", "global-reviewer")
+		if err != nil {
+			t.Logf("Cannot test review config global precedence due to permission issues: %v", err)
+			return
+		}
+		testRepo.GitExec("config", "review.default-reviewers", "local-reviewer")
+
+		defer func() {
+			_, _ = testRepo.GitExecWithError("config", "--global", "--unset", "review.default-reviewers")
+			testRepo.GitExec("config", "--unset", "review.default-reviewers")
+		}()
+
+		reviewers, err := testRepo.Repo.GetConfig("review.default-reviewers")
+		if err != nil {
+			t.Fatalf("Failed to get reviewers config: %v", err)
+		}
+		if reviewers != "local-reviewer" {
+			t.Errorf("Expected local reviewer 'local-reviewer' to take precedence, got %q", reviewers)
+		}
+	})
+}
+
 func TestWriteTree(t *testing.T) {
 	testRepo := NewTestRepo(t)
 	defer testRepo.Cleanup()
