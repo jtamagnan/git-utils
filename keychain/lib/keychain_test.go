@@ -112,20 +112,20 @@ func TestErrorMessageFormat(t *testing.T) {
 
 	// Test the error directly from GetTokenFromKeychain first
 	_, keychainErr := GetTokenFromKeychain()
-	
+
 	// This will only fail if keychain also fails (which is expected in test environment)
 	_, err := GetGitHubToken()
-	
+
 	if keychainErr == nil {
 		// Token exists in keychain, so GetGitHubToken should succeed
 		if err != nil {
 			t.Fatalf("Expected success when keychain token exists, but got error: %v", err)
 		}
 		t.Log("Token found in keychain - testing expected error message format")
-		
+
 		// Test the expected error message format directly
 		expectedErr := "GitHub token not found. Please either:\n  1. Add token to keychain: go run ./keychain\n  2. Set environment variable: export GITHUB_TOKEN=your_token"
-		
+
 		if !strings.Contains(expectedErr, "GitHub token not found") {
 			t.Errorf("Expected error to mention 'GitHub token not found'")
 		}
@@ -148,7 +148,7 @@ func TestErrorMessageFormat(t *testing.T) {
 		if err == nil {
 			t.Fatal("Expected error when no token sources available, but got success")
 		}
-		
+
 		errorMsg := err.Error()
 
 		if !strings.Contains(errorMsg, "GitHub token not found") {

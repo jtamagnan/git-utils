@@ -41,9 +41,9 @@ func TestLintWithEmptyRepo(t *testing.T) {
 		}
 
 		err := Lint(args)
-		// Should fail because there's no HEAD/upstream branch in an empty repo
-		if err == nil {
-			t.Error("Expected error for empty repository, but got none")
+		// Should pass because canLint() returns false for repos without pre-commit config
+		if err != nil {
+			t.Errorf("Expected no error for empty repository without pre-commit config, but got: %v", err)
 		}
 	})
 }

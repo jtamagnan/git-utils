@@ -21,7 +21,12 @@ func canLint() bool {
 		return false
 	}
 
-	workDir := repo.Workdir()
+	workTree, err := repo.Worktree()
+	if err != nil {
+		return false
+	}
+
+	workDir := workTree.Filesystem.Root()
 	configPath := filepath.Join(workDir, ".pre-commit-config.yaml")
 
 	if _, err := os.Stat(configPath); err == nil {

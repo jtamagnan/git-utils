@@ -26,11 +26,11 @@ func TestKeychainIntegrationWorkflow(t *testing.T) {
 
 		// Test the error directly from GetTokenFromKeychain (bypassing HasExistingToken check)
 		_, keychainErr := keychain.GetTokenFromKeychain()
-		
+
 		// Now test GetGitHubToken behavior when both keychain and env fail
 		// This will naturally fail if keychain fails and env is unset
 		_, err := keychain.GetGitHubToken()
-		
+
 		// If we have a keychain token, we test the expected behavior differently
 		if keychainErr == nil {
 			// Token exists in keychain, so GetGitHubToken should succeed
@@ -38,12 +38,12 @@ func TestKeychainIntegrationWorkflow(t *testing.T) {
 				t.Fatalf("Expected success when keychain token exists, but got error: %v", err)
 			}
 			t.Log("Keychain token exists - verified GetGitHubToken works with keychain")
-			
-			// But let's still test the error message format by calling GetGitHubToken 
+
+			// But let's still test the error message format by calling GetGitHubToken
 			// in a way that would fail if keychain didn't exist
 			t.Log("Testing error message format (simulated no-token scenario)")
 			expectedErr := "GitHub token not found. Please either:\n  1. Add token to keychain: go run ./keychain\n  2. Set environment variable: export GITHUB_TOKEN=your_token"
-			
+
 			// Validate the expected error message components
 			if !strings.Contains(expectedErr, "GitHub token not found") {
 				t.Errorf("Expected error to mention 'GitHub token not found'")
