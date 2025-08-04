@@ -213,3 +213,52 @@ func TestCheckNamesHandling(t *testing.T) {
 		})
 	}
 }
+
+// TestCanLint tests the canLint function with and without pre-commit config
+func TestCanLint(t *testing.T) {
+	tests := []struct {
+		name           string
+		configFile     string
+		configContent  string
+		expectedResult bool
+	}{
+		{
+			name:           "WithYamlConfig",
+			configFile:     ".pre-commit-config.yaml",
+			configContent:  "repos: []",
+			expectedResult: true,
+		},
+		{
+			name:           "WithYmlConfig",
+			configFile:     ".pre-commit-config.yml",
+			configContent:  "repos: []",
+			expectedResult: true,
+		},
+		{
+			name:           "NoConfig",
+			configFile:     "",
+			configContent:  "",
+			expectedResult: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testRepo := git.NewTestRepo(t)
+			defer testRepo.Cleanup()
+
+			testRepo.AddCommit("test.txt", "test content", "Initial commit")
+
+			if tt.configFile != "" {
+				testRepo.CreateFile(tt.configFile, tt.configContent)
+			}
+
+			testRepo.InDir(func() {
+				result := canLint()
+				if result != tt.expectedResult {
+					t.Errorf("Expected canLint() to return %v, got %v", tt.expectedResult, result)
+				}
+			})
+		})
+	}
+}

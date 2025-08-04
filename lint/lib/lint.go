@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/jtamagnan/git-utils/git"
 )
@@ -14,7 +15,32 @@ type ParsedArgs struct {
 	CheckNames []string
 }
 
+func canLint() bool {
+	repo, err := git.GetRepository()
+	if err != nil {
+		return false
+	}
+
+	workDir := repo.Workdir()
+	configPath := filepath.Join(workDir, ".pre-commit-config.yaml")
+
+	if _, err := os.Stat(configPath); err == nil {
+		return true
+	}
+
+	configPathYml := filepath.Join(workDir, ".pre-commit-config.yml")
+	if _, err := os.Stat(configPathYml); err == nil {
+		return true
+	}
+
+	return false
+}
+
 func Lint(args ParsedArgs) error {
+	if !canLint() {
+		return nil
+	}
+
 	// TODO(jat): Allow the "from-ref" to be set to a specific commit or upstream branch
 
 	// Get the upstream branch that we're tracking. TODO(jat): Consider using a merge-base
