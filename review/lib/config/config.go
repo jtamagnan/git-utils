@@ -152,7 +152,7 @@ func getGitConfigString(key string, handler func(string)) {
 	}
 }
 
-// InitConfig sets up Viper configuration with defaults, environment variables, and config files
+// InitConfig sets up Viper configuration with defaults, environment variables, git config, and config files
 func InitConfig() {
 	// Set defaults from flag configurations
 	for _, flag := range flagConfigs {
@@ -169,55 +169,50 @@ func InitConfig() {
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 
+	// Load git config settings (project-specific) BEFORE user config files
+	// This ensures git config takes precedence over user preferences
+	loadGitConfig()
+
 	// Set up global config file locations (user-level only)
 	viper.SetConfigName("git-review")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath("$HOME/.config") // ~/.config/git-review.yaml
 	viper.AddConfigPath("$HOME")         // ~/.git-review.yaml
 
-	// Try to read user-level config file
+	// Try to read user-level config file (loaded after git config, so user config has lower precedence)
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Printf("Using config file: %s\n", viper.ConfigFileUsed())
 	}
 
 	// Note: We intentionally do NOT read project-level config files for
-	// behavioral settings like open-browser, draft, labels, etc.
+	// behavioral settings like open-browser, draft, no-verify, etc.
 	// These should remain user preferences, not project settings.
 }
 
-// LoadProjectConfig reads project-specific settings that ARE allowed per repository
-func LoadProjectConfig() {
+// loadGitConfig reads git config values and sets them in viper
+// This is called from InitConfig to ensure proper precedence order
+func loadGitConfig() {
 	// Default reviewers for this project
-	getGitConfigList("review.defaultReviewers", func(reviewers []string) {
-		// Merge with existing reviewers (command-line reviewers take precedence)
-		existingReviewers := viper.GetStringSlice("reviewers")
-
-		// Use CommaString for clean merging without duplicates
-		allReviewers := FromStringSlice(existingReviewers)
-		allReviewers.Append(reviewers...)
-
-		viper.Set("reviewers", allReviewers.ToStringSlice())
+	getGitConfigList("review.default-reviewers", func(reviewers []string) {
+		viper.Set("reviewers", reviewers)
 	})
 
-	// Additional project-specific labels (these are ADDED to user labels, not replaced)
-	getGitConfigList("review.projectLabels", func(projectLabels []string) {
-		existingLabels := viper.GetStringSlice("labels")
-
-		// Use CommaString for clean merging without duplicates
-		labels := FromStringSlice(existingLabels)
-		labels.Append(projectLabels...)
-
-		viper.Set("labels", labels.ToStringSlice())
+	// Project-specific labels
+	getGitConfigList("review.project-labels", func(projectLabels []string) {
+		viper.Set("labels", projectLabels)
 	})
 
 	// Custom branch prefix for this project
-	getGitConfigString("review.branchPrefix", func(branchPrefix string) {
+	getGitConfigString("review.branch-prefix", func(branchPrefix string) {
 		viper.Set("project.branch-prefix", branchPrefix)
 	})
+}
 
-	// Note: Behavioral settings like open-browser, draft, no-verify are intentionally
-	// NOT configurable via git config to maintain user control and prevent
-	// projects from overriding user workflow preferences.
+// LoadProjectConfig is now deprecated - git config is loaded in InitConfig for proper precedence
+// This function is kept for backward compatibility but does nothing
+func LoadProjectConfig() {
+	// Git config is now loaded in InitConfig() to ensure proper precedence order
+	// where git config (project-specific) takes precedence over user config files
 }
 
 // ParseArgs converts Viper configuration and command-line flags into ParsedArgs
@@ -225,8 +220,8 @@ func ParseArgs(cmd *cobra.Command, _ []string) (review.ParsedArgs, error) {
 	// Viper automatically handles the precedence:
 	// 1. Command-line flags (highest)
 	// 2. Environment variables
-	// 3. User config files
-	// 4. Git config (project-specific settings)
+	// 3. Git config (project-specific settings)
+	// 4. User config files
 	// 5. Defaults (lowest)
 
 	// Handle CommaString parsing for labels

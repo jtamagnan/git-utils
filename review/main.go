@@ -27,7 +27,6 @@ func generateCommand() *cobra.Command {
 		Short: "Open a pull request for this repository.",
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			config.InitConfig()
-			config.LoadProjectConfig()
 		},
 		RunE: runE,
 	}
