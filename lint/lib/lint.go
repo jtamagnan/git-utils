@@ -83,6 +83,7 @@ func Lint(args ParsedArgs) error {
 	}
 
 	// Run each check separately
+	var lastErr error
 	for _, checkName := range args.CheckNames {
 		cliArgs := make([]string, len(baseArgs))
 		copy(cliArgs, baseArgs)
@@ -90,11 +91,11 @@ func Lint(args ParsedArgs) error {
 
 		err := runPreCommit(cliArgs, args.Stream)
 		if err != nil {
-			return err
+			lastErr = err
 		}
 	}
 
-	return nil
+	return lastErr
 }
 
 func runPreCommit(cliArgs []string, stream bool) error {
