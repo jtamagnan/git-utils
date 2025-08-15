@@ -132,11 +132,11 @@ var flagConfigs = []FlagConfig{
 		Description: "Comma-separated list of reviewers to request for the PR (e.g., 'alice,bob')",
 	},
 	{
-		Name:        "stream",
-		Shorthand:   "s",
+		Name:        "verbose",
+		Shorthand:   "",
 		Type:        "bool",
 		Default:     false,
-		Description: "Stream pre-commit check output in real-time",
+		Description: "Show verbose output including pre-commit check output in real-time",
 	},
 }
 
@@ -258,7 +258,7 @@ func ParseArgs(cmd *cobra.Command, _ []string) (review.ParsedArgs, error) {
 		Draft:       viper.GetBool("draft"),
 		Labels:      viper.GetStringSlice("labels"),
 		Reviewers:   viper.GetStringSlice("reviewers"),
-		Stream:      viper.GetBool("stream"),
+		Verbose:     viper.GetBool("verbose"),
 	}
 
 	return parsedArgs, nil
