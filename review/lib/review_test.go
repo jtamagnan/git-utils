@@ -108,3 +108,32 @@ func TestMultipleBranchesRefSummaries(t *testing.T) {
 		}
 	})
 }
+
+func TestReviewNoUpstream(t *testing.T) {
+	testRepo := git.NewTestRepo(t)
+	defer testRepo.Cleanup()
+
+	testRepo.InDir(func() {
+		// Create initial commit but don't set up upstream tracking
+		testRepo.AddCommit("README.md", "# Initial commit", "Initial commit")
+
+		args := ParsedArgs{
+			NoVerify:    true, // Skip pre-commit to focus on upstream validation
+			OpenBrowser: false,
+			Draft:       false,
+			Labels:      []string{},
+			Reviewers:   []string{},
+			Verbose:     false,
+		}
+
+		err := Review(args)
+		if err == nil {
+			t.Error("Expected error when no upstream is configured, but got none")
+		}
+
+		expectedMsg := "no upstream branch configured for current branch - run 'git branch --set-upstream-to=<remote>/<branch>' to set upstream"
+		if err.Error() != expectedMsg {
+			t.Errorf("Expected error message %q, got %q", expectedMsg, err.Error())
+		}
+	})
+}

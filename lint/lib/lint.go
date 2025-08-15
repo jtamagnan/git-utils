@@ -59,7 +59,7 @@ func Lint(args ParsedArgs) error {
 	}
 	upstreamBranch, err := branch.TrackingBranch()
 	if err != nil {
-		return err
+		return fmt.Errorf("no upstream branch configured for current branch - run 'git branch --set-upstream-to=<remote>/<branch>' to set upstream")
 	}
 
 	writeTree, err := repo.WriteTree()

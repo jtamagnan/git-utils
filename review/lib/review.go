@@ -86,7 +86,7 @@ func Review(args ParsedArgs) error {
 	//
 	upstream, err := repo.Remote()
 	if err != nil {
-		return err
+		return fmt.Errorf("no upstream branch configured for current branch - run 'git branch --set-upstream-to=<remote>/<branch>' to set upstream")
 	}
 	upstreamBranch, err := repo.GetDefaultBranch()
 	if err != nil {

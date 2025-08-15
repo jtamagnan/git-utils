@@ -214,6 +214,34 @@ func TestCheckNamesHandling(t *testing.T) {
 	}
 }
 
+// TestLintNoUpstream tests that Lint fails gracefully when no upstream is configured
+func TestLintNoUpstream(t *testing.T) {
+	testRepo := git.NewTestRepo(t)
+	defer testRepo.Cleanup()
+
+	// Create a commit and pre-commit config, but don't set up upstream tracking
+	testRepo.AddCommit("test.txt", "test content", "Initial commit")
+	testRepo.CreateFile(".pre-commit-config.yaml", "repos: []")
+
+	testRepo.InDir(func() {
+		args := ParsedArgs{
+			AllFiles:   false, // This will trigger upstream branch lookup
+			Stream:     true,
+			CheckNames: []string{},
+		}
+
+		err := Lint(args)
+		if err == nil {
+			t.Error("Expected error when no upstream is configured, but got none")
+		}
+
+		expectedMsg := "no upstream branch configured for current branch - run 'git branch --set-upstream-to=<remote>/<branch>' to set upstream"
+		if err.Error() != expectedMsg {
+			t.Errorf("Expected error message %q, got %q", expectedMsg, err.Error())
+		}
+	})
+}
+
 // TestCanLint tests the canLint function with and without pre-commit config
 func TestCanLint(t *testing.T) {
 	tests := []struct {
