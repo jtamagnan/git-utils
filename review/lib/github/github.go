@@ -99,6 +99,26 @@ func RequestReviewers(owner, repo string, prNumber int, reviewers []string) erro
 	return nil
 }
 
+// EnableAutoMerge enables automerge for a pull request
+func EnableAutoMerge(owner, repo string, prNumber int) error {
+	client, err := newAuthenticatedClient()
+	if err != nil {
+		return err
+	}
+
+	// Enable auto-merge for the PR
+	autoMergeRequest := &github.PullRequestAutoMerge{
+		MergeMethod: github.Ptr("merge"), // Use standard merge method
+	}
+
+	_, _, err = client.PullRequests.EnableAutoMerge(context.Background(), owner, repo, prNumber, autoMergeRequest)
+	if err != nil {
+		return fmt.Errorf("failed to enable auto-merge for PR #%d: %v", prNumber, err)
+	}
+
+	return nil
+}
+
 // CreatePR creates a new pull request and optionally adds labels and reviewers
 func CreatePR(owner, repo, title, head, base, body string, draft bool, labels []string, reviewers []string) (*github.PullRequest, error) {
 	client, err := newAuthenticatedClient()

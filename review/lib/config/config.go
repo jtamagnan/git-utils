@@ -138,6 +138,13 @@ var flagConfigs = []FlagConfig{
 		Default:     false,
 		Description: "Show verbose output including pre-commit check output in real-time",
 	},
+	{
+		Name:        "auto-merge",
+		Shorthand:   "m",
+		Type:        "bool",
+		Default:     false,
+		Description: "Enable automerge on newly created pull requests",
+	},
 }
 
 // splitAndTrim splits a comma-separated string and trims whitespace from each element
@@ -256,6 +263,7 @@ func ParseArgs(cmd *cobra.Command, _ []string) (review.ParsedArgs, error) {
 		NoVerify:    viper.GetBool("no-verify"),
 		OpenBrowser: viper.GetBool("open-browser"),
 		Draft:       viper.GetBool("draft"),
+		AutoMerge:   viper.GetBool("auto-merge"),
 		Labels:      viper.GetStringSlice("labels"),
 		Reviewers:   viper.GetStringSlice("reviewers"),
 		Verbose:     viper.GetBool("verbose"),

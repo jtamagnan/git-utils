@@ -121,6 +121,7 @@ func TestReviewNoUpstream(t *testing.T) {
 			NoVerify:    true, // Skip pre-commit to focus on upstream validation
 			OpenBrowser: false,
 			Draft:       false,
+			AutoMerge:   false,
 			Labels:      []string{},
 			Reviewers:   []string{},
 			Verbose:     false,
@@ -136,4 +137,44 @@ func TestReviewNoUpstream(t *testing.T) {
 			t.Errorf("Expected error message %q, got %q", expectedMsg, err.Error())
 		}
 	})
+}
+
+func TestParsedArgsStructure(t *testing.T) {
+	args := ParsedArgs{
+		NoVerify:    true,
+		OpenBrowser: false,
+		Draft:       true,
+		AutoMerge:   true,
+		Labels:      []string{"bug", "enhancement"},
+		Reviewers:   []string{"alice", "bob"},
+		Verbose:     false,
+	}
+
+	if !args.NoVerify {
+		t.Error("Expected NoVerify to be true")
+	}
+	if args.OpenBrowser {
+		t.Error("Expected OpenBrowser to be false")
+	}
+	if !args.Draft {
+		t.Error("Expected Draft to be true")
+	}
+	if !args.AutoMerge {
+		t.Error("Expected AutoMerge to be true")
+	}
+	if len(args.Labels) != 2 {
+		t.Errorf("Expected 2 labels, got %d", len(args.Labels))
+	}
+	if args.Labels[0] != "bug" || args.Labels[1] != "enhancement" {
+		t.Errorf("Expected ['bug', 'enhancement'], got %v", args.Labels)
+	}
+	if len(args.Reviewers) != 2 {
+		t.Errorf("Expected 2 reviewers, got %d", len(args.Reviewers))
+	}
+	if args.Reviewers[0] != "alice" || args.Reviewers[1] != "bob" {
+		t.Errorf("Expected ['alice', 'bob'], got %v", args.Reviewers)
+	}
+	if args.Verbose {
+		t.Error("Expected Verbose to be false")
+	}
 }

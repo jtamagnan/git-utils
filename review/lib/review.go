@@ -21,6 +21,7 @@ type ParsedArgs struct {
 	NoVerify    bool
 	OpenBrowser bool
 	Draft       bool
+	AutoMerge   bool
 	Labels      []string
 	Reviewers   []string
 	Verbose     bool
@@ -195,6 +196,18 @@ func Review(args ParsedArgs) error {
 		githubPR, err = githubapi.CreatePR(repoInfo.Owner, repoInfo.Name, prTitle, remoteBranchName, baseBranch, prDescription, args.Draft, args.Labels, args.Reviewers)
 		if err != nil {
 			return err
+		}
+
+		//
+		// Enable auto-merge if requested
+		//
+		if args.AutoMerge {
+			fmt.Printf("Enabling auto-merge for PR #%d\n", *githubPR.Number)
+			err = githubapi.EnableAutoMerge(repoInfo.Owner, repoInfo.Name, *githubPR.Number)
+			if err != nil {
+				fmt.Printf("Warning: Failed to enable auto-merge: %v\n", err)
+				// Don't fail the entire operation if auto-merge fails
+			}
 		}
 
 		//
