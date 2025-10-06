@@ -1,6 +1,7 @@
 package lint
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/jtamagnan/git-utils/git"
@@ -239,6 +240,55 @@ func TestLintNoUpstream(t *testing.T) {
 		if err.Error() != expectedMsg {
 			t.Errorf("Expected error message %q, got %q", expectedMsg, err.Error())
 		}
+	})
+}
+
+// TestMultipleCheckFailures tests that all checks run even if some fail
+func TestMultipleCheckFailures(t *testing.T) {
+	testRepo := git.NewTestRepo(t)
+	defer testRepo.Cleanup()
+
+	// Create a repository with pre-commit config and upstream tracking
+	testRepo.AddCommit("test.txt", "test content", "Initial commit")
+	testRepo.AddRemote("origin", "https://github.com/example/repo.git")
+	testRepo.CreateRemoteTrackingBranch("origin", "main")
+	testRepo.SetUpstream("origin", "main")
+	testRepo.CreateFile(".pre-commit-config.yaml", "repos: []")
+
+	testRepo.InDir(func() {
+		// Request multiple checks that will likely fail
+		args := ParsedArgs{
+			AllFiles:   true,
+			Stream:     false,
+			CheckNames: []string{"non-existent-check-1", "non-existent-check-2", "non-existent-check-3"},
+		}
+
+		err := Lint(args)
+
+		// Should get an error
+		if err == nil {
+			t.Error("Expected error when running non-existent checks, but got none")
+			return
+		}
+
+		// The error should be a joined error containing multiple check failures
+		errMsg := err.Error()
+
+		// Count how many checks are mentioned in the error
+		checkCount := 0
+		for _, checkName := range args.CheckNames {
+			if strings.Contains(errMsg, checkName) {
+				checkCount++
+			}
+		}
+
+		// All checks should have run and failed, so all should be mentioned in the error
+		if checkCount != len(args.CheckNames) {
+			t.Errorf("Expected all %d checks to be mentioned in error, but only found %d", len(args.CheckNames), checkCount)
+			t.Logf("Error message: %s", errMsg)
+		}
+
+		t.Logf("Successfully verified that all %d checks ran and errors were collected", checkCount)
 	})
 }
 

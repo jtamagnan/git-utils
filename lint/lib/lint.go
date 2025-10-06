@@ -1,6 +1,7 @@
 package lint
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -82,8 +83,8 @@ func Lint(args ParsedArgs) error {
 		return runPreCommit(baseArgs, args.Stream)
 	}
 
-	// Run each check separately
-	var lastErr error
+	// Run each check separately and collect all errors
+	var errs []error
 	for _, checkName := range args.CheckNames {
 		cliArgs := make([]string, len(baseArgs))
 		copy(cliArgs, baseArgs)
@@ -91,11 +92,15 @@ func Lint(args ParsedArgs) error {
 
 		err := runPreCommit(cliArgs, args.Stream)
 		if err != nil {
-			lastErr = err
+			errs = append(errs, fmt.Errorf("check %q failed: %w", checkName, err))
 		}
 	}
 
-	return lastErr
+	// Return all errors joined together, or nil if no errors
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
+	return nil
 }
 
 func runPreCommit(cliArgs []string, stream bool) error {
