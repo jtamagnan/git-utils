@@ -1,8 +1,12 @@
 package github
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 
 	"github.com/google/go-github/v71/github"
 	keychain "github.com/jtamagnan/git-utils/keychain/lib"
@@ -99,21 +103,110 @@ func RequestReviewers(owner, repo string, prNumber int, reviewers []string) erro
 	return nil
 }
 
-// EnableAutoMerge enables automerge for a pull request
+// EnableAutoMerge enables automerge for a pull request using GitHub's GraphQL API
 func EnableAutoMerge(owner, repo string, prNumber int) error {
 	client, err := newAuthenticatedClient()
 	if err != nil {
 		return err
 	}
 
-	// Enable auto-merge for the PR
-	autoMergeRequest := &github.PullRequestAutoMerge{
-		MergeMethod: github.Ptr("merge"), // Use standard merge method
+	// Step 1: Get the pull request node ID (required for GraphQL)
+	pr, _, err := client.PullRequests.Get(context.Background(), owner, repo, prNumber)
+	if err != nil {
+		return fmt.Errorf("failed to get PR #%d: %v", prNumber, err)
 	}
 
-	_, _, err = client.PullRequests.EnableAutoMerge(context.Background(), owner, repo, prNumber, autoMergeRequest)
+	if pr.NodeID == nil {
+		return fmt.Errorf("PR #%d has no node ID", prNumber)
+	}
+
+	// Step 2: Enable auto-merge using GraphQL mutation
+	token, err := keychain.GetGitHubToken()
 	if err != nil {
-		return fmt.Errorf("failed to enable auto-merge for PR #%d: %v", prNumber, err)
+		return err
+	}
+
+	mutation := `
+		mutation($pullRequestId: ID!, $mergeMethod: PullRequestMergeMethod!) {
+			enablePullRequestAutoMerge(input: {
+				pullRequestId: $pullRequestId,
+				mergeMethod: $mergeMethod
+			}) {
+				pullRequest {
+					id
+					autoMergeRequest {
+						mergeMethod
+						enabledAt
+					}
+				}
+			}
+		}
+	`
+
+	requestBody := map[string]interface{}{
+		"query": mutation,
+		"variables": map[string]interface{}{
+			"pullRequestId": *pr.NodeID,
+			"mergeMethod":   "MERGE",
+		},
+	}
+
+	jsonBody, err := json.Marshal(requestBody)
+	if err != nil {
+		return fmt.Errorf("failed to marshal GraphQL request: %v", err)
+	}
+
+	req, err := http.NewRequestWithContext(context.Background(), "POST", "https://api.github.com/graphql", bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %v", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+
+	httpClient := &http.Client{}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to execute GraphQL request: %v", err)
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("GraphQL request failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Parse response to check for GraphQL errors
+	var graphQLResponse struct {
+		Data struct {
+			EnablePullRequestAutoMerge struct {
+				PullRequest struct {
+					ID               string
+					AutoMergeRequest struct {
+						MergeMethod string
+						EnabledAt   string
+					}
+				}
+			}
+		}
+		Errors []struct {
+			Message string
+		}
+	}
+
+	err = json.Unmarshal(body, &graphQLResponse)
+	if err != nil {
+		return fmt.Errorf("failed to parse GraphQL response: %v", err)
+	}
+
+	if len(graphQLResponse.Errors) > 0 {
+		return fmt.Errorf("GraphQL errors: %s", graphQLResponse.Errors[0].Message)
 	}
 
 	return nil
