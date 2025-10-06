@@ -235,6 +235,7 @@ func TestCommandFlags(t *testing.T) {
 	labelsFlag := cmd.Flags().Lookup("labels")
 	if labelsFlag == nil {
 		t.Fatal("labels flag not found")
+		return
 	}
 
 	if labelsFlag.Shorthand != "l" {
@@ -249,6 +250,7 @@ func TestCommandFlags(t *testing.T) {
 	openBrowserFlag := cmd.Flags().Lookup("open-browser")
 	if openBrowserFlag == nil {
 		t.Fatal("open-browser flag not found")
+		return
 	}
 
 	if openBrowserFlag.Shorthand != "b" {

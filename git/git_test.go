@@ -353,6 +353,7 @@ func TestHeadAndReference(t *testing.T) {
 
 		if head == nil {
 			t.Fatal("Head returned nil reference")
+			return
 		}
 
 		// Test the reference name

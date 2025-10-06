@@ -145,6 +145,13 @@ var flagConfigs = []FlagConfig{
 		Default:     false,
 		Description: "Enable automerge on newly created pull requests",
 	},
+	{
+		Name:        "parent",
+		Shorthand:   "p",
+		Type:        "string",
+		Default:     "",
+		Description: "Parent branch to base PR off of (branch name, PR number, or git ref). If not specified, uses upstream default branch",
+	},
 }
 
 // splitAndTrim splits a comma-separated string and trims whitespace from each element
@@ -267,6 +274,7 @@ func ParseArgs(cmd *cobra.Command, _ []string) (review.ParsedArgs, error) {
 		Labels:      viper.GetStringSlice("labels"),
 		Reviewers:   viper.GetStringSlice("reviewers"),
 		Verbose:     viper.GetBool("verbose"),
+		Parent:      viper.GetString("parent"),
 	}
 
 	return parsedArgs, nil

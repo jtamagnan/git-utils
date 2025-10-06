@@ -47,7 +47,12 @@ func (repo *Repository) Remote() (string, error) {
 		return "", err
 	}
 
-	return regexp.MustCompile(`refs/remotes/(.*)/.*`).FindStringSubmatch(trackingBranch)[1], nil
+	matches := regexp.MustCompile(`refs/remotes/(.*)/.*`).FindStringSubmatch(trackingBranch)
+	if len(matches) < 2 {
+		return "", fmt.Errorf("could not parse remote from tracking branch: %s", trackingBranch)
+	}
+
+	return matches[1], nil
 }
 
 // GetRemoteURL gets the URL for the specified remote

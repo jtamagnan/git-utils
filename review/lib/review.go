@@ -12,6 +12,7 @@ import (
 	"github.com/jtamagnan/git-utils/review/lib/branch"
 	"github.com/jtamagnan/git-utils/review/lib/commit"
 	githubapi "github.com/jtamagnan/git-utils/review/lib/github"
+	"github.com/jtamagnan/git-utils/review/lib/parent"
 	"github.com/jtamagnan/git-utils/review/lib/pr"
 	"github.com/jtamagnan/git-utils/review/lib/template"
 )
@@ -25,6 +26,7 @@ type ParsedArgs struct {
 	Labels      []string
 	Reviewers   []string
 	Verbose     bool
+	Parent      string
 }
 
 // stripRemotePrefix removes the specific remote prefix from branch names (e.g., "origin/main" -> "main")
@@ -83,15 +85,11 @@ func Review(args ParsedArgs) error {
 	}
 
 	//
-	// Get upstream remote and default branch
+	// Get upstream remote
 	//
 	upstream, err := repo.Remote()
 	if err != nil {
 		return fmt.Errorf("no upstream branch configured for current branch - run 'git branch --set-upstream-to=<remote>/<branch>' to set upstream")
-	}
-	upstreamBranch, err := repo.GetDefaultBranch()
-	if err != nil {
-		return err
 	}
 
 	//
@@ -108,12 +106,23 @@ func Review(args ParsedArgs) error {
 	}
 
 	//
+	// Resolve the parent branch (from --parent flag or default to upstream)
+	//
+	resolvedParent, err := parent.ResolveParent(repo, args.Parent, repoInfo.Owner, repoInfo.Name)
+	if err != nil {
+		return err
+	}
+
+	parentBranch := resolvedParent.GitRef
+	fmt.Printf("Using parent branch: %s (GitHub base: %s)\n", parentBranch, resolvedParent.GitHubBase)
+
+	//
 	// Determine the remote branch name to use and if the PR already
 	// exists and is open
 	//
 	var remoteBranchName string
 	var isNewPR bool
-	existingPRNumber, err := pr.DetectExistingPR(repo, upstreamBranch)
+	existingPRNumber, err := pr.DetectExistingPR(repo, parentBranch)
 	if err != nil {
 		// No existing PR found, generate UUID branch name for new PR
 		remoteBranchName, err = branch.GenerateUUIDBranchName()
@@ -175,9 +184,9 @@ func Review(args ParsedArgs) error {
 		//
 		// Generate PR title from commit summaries
 		//
-		summaries := repo.RefSummaries(upstreamBranch)
+		summaries := repo.RefSummaries(parentBranch)
 		if len(summaries) == 0 {
-			return fmt.Errorf("no commits found between HEAD and %s", upstreamBranch)
+			return fmt.Errorf("no commits found between HEAD and %s", parentBranch)
 		}
 		prTitle := summaries[0] // Use the oldest (first) commit summary
 
@@ -192,8 +201,7 @@ func Review(args ParsedArgs) error {
 		//
 		// Open the PR
 		//
-		baseBranch := stripRemotePrefix(upstreamBranch, upstream)
-		githubPR, err = githubapi.CreatePR(repoInfo.Owner, repoInfo.Name, prTitle, remoteBranchName, baseBranch, prDescription, args.Draft, args.Labels, args.Reviewers)
+		githubPR, err = githubapi.CreatePR(repoInfo.Owner, repoInfo.Name, prTitle, remoteBranchName, resolvedParent.GitHubBase, prDescription, args.Draft, args.Labels, args.Reviewers)
 		if err != nil {
 			return err
 		}
@@ -219,7 +227,7 @@ func Review(args ParsedArgs) error {
 		//
 		// Update the oldest commit message with the PR URL
 		//
-		err = commit.UpdateOldestCommitWithPRURL(repo, upstreamBranch, *githubPR.HTMLURL)
+		err = commit.UpdateOldestCommitWithPRURL(repo, parentBranch, *githubPR.HTMLURL)
 		if err != nil {
 			return err
 		}
