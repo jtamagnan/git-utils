@@ -3,6 +3,8 @@ package review
 import (
 	"fmt"
 	"os/exec"
+	"regexp"
+	"strings"
 
 	"github.com/google/go-github/v71/github"
 	"github.com/jtamagnan/git-utils/editor"
@@ -137,6 +139,50 @@ func groupCommits(commits []pr.StackCommitPR, defaultBase string) []stackGroup {
 	return groups
 }
 
+// stackPRInfo holds the info needed to build the PR Stack section
+type stackPRInfo struct {
+	title    string
+	prNumber int
+}
+
+// buildStackSection builds the "## PR Stack" markdown section.
+// currentIndex is the 0-based index of the PR being described.
+func buildStackSection(prs []stackPRInfo, currentIndex int) string {
+	var b strings.Builder
+	b.WriteString("## PR Stack\n")
+	for i, p := range prs {
+		if i == currentIndex {
+			b.WriteString(fmt.Sprintf("%d. :star: `%s` (#%d)\n", i+1, p.title, p.prNumber))
+		} else {
+			b.WriteString(fmt.Sprintf("%d. `%s` (#%d)\n", i+1, p.title, p.prNumber))
+		}
+	}
+	return b.String()
+}
+
+// stackSectionRegex matches an existing "## PR Stack" section (including trailing newlines)
+var stackSectionRegex = regexp.MustCompile(`(?ms)^## PR Stack\n(?:.*\n)*?(?:\n|$)`)
+
+// upsertStackSection replaces an existing PR Stack section in body, or appends one.
+func upsertStackSection(body, section string) string {
+	if stackSectionRegex.MatchString(body) {
+		return strings.TrimSpace(stackSectionRegex.ReplaceAllString(body, section)) + "\n"
+	}
+	return strings.TrimSpace(body) + "\n\n" + section
+}
+
+// updateStackDescriptions updates all PRs in the stack with the PR Stack section
+func updateStackDescriptions(owner, repo string, prs []stackPRInfo, prBodies map[int]string) {
+	for i, p := range prs {
+		section := buildStackSection(prs, i)
+		body := upsertStackSection(prBodies[p.prNumber], section)
+		err := githubapi.UpdatePRBody(owner, repo, p.prNumber, body)
+		if err != nil {
+			fmt.Printf("Warning: failed to update description for PR #%d: %v\n", p.prNumber, err)
+		}
+	}
+}
+
 // createStack creates a new PR for each commit (mode 1: no existing PRs)
 func createStack(repo *git.Repository, upstream string, repoInfo *git.RepositoryInfo, parentBranch, defaultBase string, groups []stackGroup, openBrowser bool) error {
 	var createdPRs []*github.PullRequest
@@ -218,6 +264,19 @@ func createStack(repo *git.Repository, upstream string, repoInfo *git.Repository
 			fmt.Printf("Warning: failed to re-push branch %s: %v\n", branchName, err)
 		}
 	}
+
+	// Update all PR descriptions with the PR Stack section
+	fmt.Println("Updating PR descriptions with stack info...")
+	var stackInfos []stackPRInfo
+	prBodies := make(map[int]string)
+	for i, githubPR := range createdPRs {
+		stackInfos = append(stackInfos, stackPRInfo{
+			title:    groups[i].commits[0].Summary,
+			prNumber: *githubPR.Number,
+		})
+		prBodies[*githubPR.Number] = githubPR.GetBody()
+	}
+	updateStackDescriptions(repoInfo.Owner, repoInfo.Name, stackInfos, prBodies)
 
 	// Open browsers
 	if openBrowser {
@@ -334,11 +393,14 @@ func updateStack(repo *git.Repository, upstream string, repoInfo *git.Repository
 		groups = updatedGroups
 	}
 
-	// Second pass: push all branches and update PR bases
+	// Second pass: push all branches, update PR bases, and collect PR info
+	var stackInfos []stackPRInfo
+	prBodies := make(map[int]string)
+
 	for i, group := range groups {
 		lastCommit := group.commits[len(group.commits)-1]
 		fmt.Printf("Pushing to %s (PR #%d)\n", group.branchName, group.prNumber)
-		_, err := repo.GitExec("push", "--force", upstream, fmt.Sprintf("%s:%s", lastCommit.Hash, group.branchName))
+		_, err := repo.GitExec("push", "--force", upstream, fmt.Sprintf("%s:refs/heads/%s", lastCommit.Hash, group.branchName))
 		if err != nil {
 			return fmt.Errorf("error pushing to %s: %v", group.branchName, err)
 		}
@@ -349,15 +411,27 @@ func updateStack(repo *git.Repository, upstream string, repoInfo *git.Repository
 			fmt.Printf("Warning: failed to update base for PR #%d: %v\n", group.prNumber, err)
 		}
 
+		// Collect PR info for stack description and summary
+		stackInfos = append(stackInfos, stackPRInfo{
+			title:    group.commits[0].Summary,
+			prNumber: group.prNumber,
+		})
+
 		if group.prURL != "" {
 			allPRURLs = append(allPRURLs, fmt.Sprintf("  %d. PR #%d: %s", i+1, group.prNumber, group.prURL))
+			prBodies[group.prNumber] = "" // new PR, body already set during creation
 		} else {
 			githubPR, err := githubapi.GetExistingPR(repoInfo.Owner, repoInfo.Name, group.prNumber)
 			if err == nil {
 				allPRURLs = append(allPRURLs, fmt.Sprintf("  %d. PR #%d: %s", i+1, group.prNumber, *githubPR.HTMLURL))
+				prBodies[group.prNumber] = githubPR.GetBody()
 			}
 		}
 	}
+
+	// Update all PR descriptions with the PR Stack section
+	fmt.Println("Updating PR descriptions with stack info...")
+	updateStackDescriptions(repoInfo.Owner, repoInfo.Name, stackInfos, prBodies)
 
 	// Print summary
 	fmt.Println("\n--- Stack Summary ---")

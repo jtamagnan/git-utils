@@ -233,6 +233,25 @@ func UpdatePRBase(owner, repo string, prNumber int, newBase string) error {
 	return nil
 }
 
+// UpdatePRBody updates the body/description of an existing pull request
+func UpdatePRBody(owner, repo string, prNumber int, body string) error {
+	client, err := newAuthenticatedClient()
+	if err != nil {
+		return err
+	}
+
+	update := &github.PullRequest{
+		Body: github.Ptr(body),
+	}
+
+	_, _, err = client.PullRequests.Edit(context.Background(), owner, repo, prNumber, update)
+	if err != nil {
+		return fmt.Errorf("failed to update body for PR #%d: %v", prNumber, err)
+	}
+
+	return nil
+}
+
 // CreatePR creates a new pull request and optionally adds labels and reviewers
 func CreatePR(owner, repo, title, head, base, body string, draft bool, labels []string, reviewers []string) (*github.PullRequest, error) {
 	client, err := newAuthenticatedClient()

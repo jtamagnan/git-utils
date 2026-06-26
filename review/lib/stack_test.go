@@ -1,6 +1,7 @@
 package review
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/jtamagnan/git-utils/review/lib/pr"
@@ -103,5 +104,84 @@ func TestGroupCommits_OrphanBeforeFirst(t *testing.T) {
 	// Second group: B with existing PR
 	if groups[1].prNumber != 1 {
 		t.Errorf("Group 1: expected prNumber 1, got %d", groups[1].prNumber)
+	}
+}
+
+func TestBuildStackSection(t *testing.T) {
+	prs := []stackPRInfo{
+		{title: "Add auth module", prNumber: 10},
+		{title: "Add user profile", prNumber: 11},
+		{title: "Add settings page", prNumber: 12},
+	}
+
+	// Test highlighting the second PR
+	section := buildStackSection(prs, 1)
+
+	expected := "## PR Stack\n" +
+		"1. `Add auth module` (#10)\n" +
+		"2. :star: `Add user profile` (#11)\n" +
+		"3. `Add settings page` (#12)\n"
+
+	if section != expected {
+		t.Errorf("buildStackSection mismatch.\nExpected:\n%s\nGot:\n%s", expected, section)
+	}
+
+	// Test highlighting the first PR
+	section = buildStackSection(prs, 0)
+	if !strings.HasPrefix(section, "## PR Stack\n1. :star:") {
+		t.Errorf("Expected first entry to be starred, got:\n%s", section)
+	}
+}
+
+func TestBuildStackSection_SinglePR(t *testing.T) {
+	prs := []stackPRInfo{
+		{title: "Solo PR", prNumber: 42},
+	}
+
+	section := buildStackSection(prs, 0)
+	expected := "## PR Stack\n1. :star: `Solo PR` (#42)\n"
+
+	if section != expected {
+		t.Errorf("Expected:\n%s\nGot:\n%s", expected, section)
+	}
+}
+
+func TestUpsertStackSection_Append(t *testing.T) {
+	body := "Some PR description.\n\n## Test plan\n- [ ] Test it"
+	section := "## PR Stack\n1. :star: `Foo` (#1)\n"
+
+	result := upsertStackSection(body, section)
+
+	if !strings.Contains(result, "## Test plan") {
+		t.Error("Original body content was lost")
+	}
+	if !strings.Contains(result, "## PR Stack") {
+		t.Error("Stack section was not appended")
+	}
+	if !strings.Contains(result, ":star: `Foo` (#1)") {
+		t.Error("Stack entry not found")
+	}
+}
+
+func TestUpsertStackSection_Replace(t *testing.T) {
+	body := "Some description.\n\n## PR Stack\n1. :star: `Old` (#1)\n2. `Old2` (#2)\n\n## Test plan\n- [ ] done"
+	section := "## PR Stack\n1. `New` (#1)\n2. :star: `New2` (#2)\n3. `New3` (#3)\n"
+
+	result := upsertStackSection(body, section)
+
+	// Should have new stack section
+	if !strings.Contains(result, ":star: `New2` (#2)") {
+		t.Errorf("New stack entry not found in:\n%s", result)
+	}
+	// Should not have old stack entries
+	if strings.Contains(result, "`Old`") {
+		t.Errorf("Old stack entry still present in:\n%s", result)
+	}
+	// Should preserve other sections
+	if !strings.Contains(result, "## Test plan") {
+		t.Errorf("Test plan section was lost in:\n%s", result)
+	}
+	if !strings.Contains(result, "Some description.") {
+		t.Errorf("Original description was lost in:\n%s", result)
 	}
 }
