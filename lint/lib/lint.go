@@ -79,9 +79,10 @@ func Lint(args ParsedArgs) error {
 	var baseArgs []string
 	baseArgs = append(baseArgs, "run")
 	baseArgs = append(baseArgs, "--color=always")
-	baseArgs = append(baseArgs, "--all-files")
 
-	if !args.AllFiles {
+	if args.AllFiles {
+		baseArgs = append(baseArgs, "--all-files")
+	} else {
 		baseArgs = append(baseArgs, fmt.Sprintf("--from-ref=%s", upstreamBranch))
 		baseArgs = append(baseArgs, fmt.Sprintf("--to-ref=%s", writeTree))
 	}
