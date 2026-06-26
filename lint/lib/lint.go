@@ -42,6 +42,14 @@ func canLint() bool {
 	return false
 }
 
+// lintCommand returns "prek" if it is installed, otherwise "pre-commit".
+func lintCommand() string {
+	if _, err := exec.LookPath("prek"); err == nil {
+		return "prek"
+	}
+	return "pre-commit"
+}
+
 func Lint(args ParsedArgs) error {
 	if !canLint() {
 		return nil
@@ -59,7 +67,7 @@ func Lint(args ParsedArgs) error {
 		return err
 	}
 	upstreamBranch, err := branch.TrackingBranch()
-	if err != nil {
+	if err != nil || upstreamBranch == "" {
 		return fmt.Errorf("no upstream branch configured for current branch - run 'git branch --set-upstream-to=<remote>/<branch>' to set upstream")
 	}
 
@@ -78,9 +86,11 @@ func Lint(args ParsedArgs) error {
 		baseArgs = append(baseArgs, fmt.Sprintf("--to-ref=%s", writeTree))
 	}
 
+	lintCmd := lintCommand()
+
 	// If no specific checks provided, run all checks
 	if len(args.CheckNames) == 0 {
-		return runPreCommit(baseArgs, args.Stream)
+		return runLintCommand(lintCmd, baseArgs, args.Stream)
 	}
 
 	// Run each check separately and collect all errors
@@ -90,7 +100,7 @@ func Lint(args ParsedArgs) error {
 		copy(cliArgs, baseArgs)
 		cliArgs = append(cliArgs, checkName)
 
-		err := runPreCommit(cliArgs, args.Stream)
+		err := runLintCommand(lintCmd, cliArgs, args.Stream)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("check %q failed: %w", checkName, err))
 		}
@@ -103,8 +113,8 @@ func Lint(args ParsedArgs) error {
 	return nil
 }
 
-func runPreCommit(cliArgs []string, stream bool) error {
-	cmd := exec.Command("pre-commit", cliArgs...)
+func runLintCommand(lintCmd string, cliArgs []string, stream bool) error {
+	cmd := exec.Command(lintCmd, cliArgs...)
 
 	if stream {
 		fmt.Printf("$ %s:\n", cmd.String())
@@ -117,7 +127,7 @@ func runPreCommit(cliArgs []string, stream bool) error {
 	} else {
 		out, err := cmd.CombinedOutput()
 		if err != nil {
-			return fmt.Errorf("error running pre-commit: `%s` \n%s", cmd.String(), out)
+			return fmt.Errorf("error running `%s` \n%s", cmd.String(), out)
 		}
 	}
 

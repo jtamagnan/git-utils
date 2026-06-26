@@ -42,7 +42,7 @@ func generateCommand() *cobra.Command {
 	var rootCmd = &cobra.Command{
 		Use:          "git-lint [check-name...]",
 		Short:        "Run pre-commit checks in this repository.",
-		Long:         "Run pre-commit checks. Optionally specify one or more specific check names to run only those checks.",
+		Long:         "Run pre-commit checks using prek (preferred) or pre-commit. Optionally specify one or more specific check names to run only those checks.",
 		RunE:         runE,
 		SilenceUsage: true,
 	}

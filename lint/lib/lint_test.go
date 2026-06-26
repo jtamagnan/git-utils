@@ -292,6 +292,14 @@ func TestMultipleCheckFailures(t *testing.T) {
 	})
 }
 
+// TestLintCommand tests that lintCommand returns a valid command name
+func TestLintCommand(t *testing.T) {
+	cmd := lintCommand()
+	if cmd != "prek" && cmd != "pre-commit" {
+		t.Errorf("Expected lintCommand() to return \"prek\" or \"pre-commit\", got %q", cmd)
+	}
+}
+
 // TestCanLint tests the canLint function with and without pre-commit config
 func TestCanLint(t *testing.T) {
 	tests := []struct {
