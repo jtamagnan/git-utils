@@ -99,6 +99,87 @@ func TestDetectExistingPRNoCommits(t *testing.T) {
 	})
 }
 
+func TestDetectAllPRs(t *testing.T) {
+	testRepo := git.NewTestRepo(t)
+	defer testRepo.Cleanup()
+
+	testRepo.InDir(func() {
+		testRepo.AddCommit("README.md", "# Init", "Initial commit")
+		testRepo.CreateBranch("feature")
+		testRepo.AddCommit("a.txt", "a", "First commit\n\nPR URL: https://github.com/owner/repo/pull/10")
+		testRepo.AddCommit("b.txt", "b", "Second commit")
+		testRepo.AddCommit("c.txt", "c", "Third commit\n\nPR URL: https://github.com/owner/repo/pull/20")
+		testRepo.RefreshRepo()
+
+		results, err := DetectAllPRs(testRepo.Repo, "main")
+		if err != nil {
+			t.Fatalf("DetectAllPRs failed: %v", err)
+		}
+
+		if len(results) != 3 {
+			t.Fatalf("Expected 3 commits, got %d", len(results))
+		}
+
+		// First commit has PR #10
+		if results[0].PRNum != 10 {
+			t.Errorf("Expected commit 0 PRNum=10, got %d", results[0].PRNum)
+		}
+		if results[0].PRURL != "https://github.com/owner/repo/pull/10" {
+			t.Errorf("Expected commit 0 PRURL, got %q", results[0].PRURL)
+		}
+		if results[0].Summary != "First commit" {
+			t.Errorf("Expected summary 'First commit', got %q", results[0].Summary)
+		}
+
+		// Second commit has no PR
+		if results[1].PRNum != 0 {
+			t.Errorf("Expected commit 1 PRNum=0, got %d", results[1].PRNum)
+		}
+		if results[1].PRURL != "" {
+			t.Errorf("Expected commit 1 empty PRURL, got %q", results[1].PRURL)
+		}
+
+		// Third commit has PR #20
+		if results[2].PRNum != 20 {
+			t.Errorf("Expected commit 2 PRNum=20, got %d", results[2].PRNum)
+		}
+	})
+}
+
+func TestExtractPRURLAndNumber(t *testing.T) {
+	tests := []struct {
+		name        string
+		message     string
+		expectedURL string
+		expectedNum int
+	}{
+		{
+			name:        "Valid PR URL",
+			message:     "Fix bug\n\nPR URL: https://github.com/owner/repo/pull/42",
+			expectedURL: "https://github.com/owner/repo/pull/42",
+			expectedNum: 42,
+		},
+		{
+			name:        "No PR URL",
+			message:     "Just a commit",
+			expectedURL: "",
+			expectedNum: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			url, num := extractPRURLAndNumber(tt.message)
+			if url != tt.expectedURL {
+				t.Errorf("URL: got %q, want %q", url, tt.expectedURL)
+			}
+			if num != tt.expectedNum {
+				t.Errorf("Num: got %d, want %d", num, tt.expectedNum)
+			}
+		})
+	}
+}
+
 func TestExtractPRNumber(t *testing.T) {
 	tests := []struct {
 		name     string

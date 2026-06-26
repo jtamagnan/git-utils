@@ -280,6 +280,62 @@ func ParseArgs(cmd *cobra.Command, _ []string) (review.ParsedArgs, error) {
 	return parsedArgs, nil
 }
 
+// stackFlagConfigs defines flags specific to the stack subcommand
+var stackFlagConfigs = []FlagConfig{
+	{
+		Name:        "no-verify",
+		Shorthand:   "v",
+		Type:        "bool",
+		Default:     false,
+		Description: "Skip the pre-push checks",
+	},
+	{
+		Name:        "open-browser",
+		Shorthand:   "b",
+		Type:        "bool",
+		Default:     true,
+		Description: "Open the pull requests in the browser",
+	},
+	{
+		Name:        "verbose",
+		Shorthand:   "",
+		Type:        "bool",
+		Default:     false,
+		Description: "Show verbose output including pre-commit check output in real-time",
+	},
+	{
+		Name:        "parent",
+		Shorthand:   "p",
+		Type:        "string",
+		Default:     "",
+		Description: "Parent branch to base stack off of (branch name, PR number, or git ref). If not specified, uses upstream default branch",
+	},
+}
+
+// ParseStackArgs converts flags into StackParsedArgs
+func ParseStackArgs(cmd *cobra.Command, _ []string) (review.StackParsedArgs, error) {
+	parsedArgs := review.StackParsedArgs{
+		NoVerify:    viper.GetBool("no-verify"),
+		OpenBrowser: viper.GetBool("open-browser"),
+		Verbose:     viper.GetBool("verbose"),
+		Parent:      viper.GetString("parent"),
+	}
+	return parsedArgs, nil
+}
+
+// SetupStackFlags defines and binds command-line flags for the stack subcommand
+func SetupStackFlags(cmd *cobra.Command) {
+	for _, flag := range stackFlagConfigs {
+		switch flag.Type {
+		case "bool":
+			cmd.Flags().BoolP(flag.Name, flag.Shorthand, flag.Default.(bool), flag.Description)
+		case "string":
+			cmd.Flags().StringP(flag.Name, flag.Shorthand, flag.Default.(string), flag.Description)
+		}
+		_ = viper.BindPFlag(flag.Name, cmd.Flags().Lookup(flag.Name))
+	}
+}
+
 // SetupFlags defines and binds command-line flags to Viper using the flag configurations
 func SetupFlags(cmd *cobra.Command) {
 	for _, flag := range flagConfigs {

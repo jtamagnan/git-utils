@@ -212,6 +212,27 @@ func EnableAutoMerge(owner, repo string, prNumber int) error {
 	return nil
 }
 
+// UpdatePRBase updates the base branch of an existing pull request
+func UpdatePRBase(owner, repo string, prNumber int, newBase string) error {
+	client, err := newAuthenticatedClient()
+	if err != nil {
+		return err
+	}
+
+	update := &github.PullRequest{
+		Base: &github.PullRequestBranch{
+			Ref: github.Ptr(newBase),
+		},
+	}
+
+	_, _, err = client.PullRequests.Edit(context.Background(), owner, repo, prNumber, update)
+	if err != nil {
+		return fmt.Errorf("failed to update base branch for PR #%d: %v", prNumber, err)
+	}
+
+	return nil
+}
+
 // CreatePR creates a new pull request and optionally adds labels and reviewers
 func CreatePR(owner, repo, title, head, base, body string, draft bool, labels []string, reviewers []string) (*github.PullRequest, error) {
 	client, err := newAuthenticatedClient()

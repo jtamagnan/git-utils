@@ -21,6 +21,19 @@ func runE(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+func stackRunE(cmd *cobra.Command, args []string) error {
+	parsedArgs, err := config.ParseStackArgs(cmd, args)
+	if err != nil {
+		return err
+	}
+
+	err = review.Stack(parsedArgs)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func generateCommand() *cobra.Command {
 	var rootCmd = &cobra.Command{
 		Use:   "git-review",
@@ -33,6 +46,15 @@ func generateCommand() *cobra.Command {
 
 	// Set up flags using the config library
 	config.SetupFlags(rootCmd)
+
+	// Add stack subcommand
+	stackCmd := &cobra.Command{
+		Use:   "stack",
+		Short: "Create or update stacked pull requests, one per commit.",
+		RunE:  stackRunE,
+	}
+	config.SetupStackFlags(stackCmd)
+	rootCmd.AddCommand(stackCmd)
 
 	return rootCmd
 }

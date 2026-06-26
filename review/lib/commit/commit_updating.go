@@ -88,6 +88,189 @@ func UpdateOldestCommitWithPRURL(repo *git.Repository, upstreamBranch, prURL str
 	return nil
 }
 
+// CommitPRURL maps a commit hash to the PR URL to stamp on it
+type CommitPRURL struct {
+	Hash  string
+	PRURL string
+}
+
+// rewordEntry holds the abbreviated hash and new message for a commit to reword
+type rewordEntry struct {
+	abbrevHash string
+	newMessage string
+}
+
+// UpdateMultipleCommitsWithPRURLs stamps PR URLs on multiple commits in a single rebase pass
+func UpdateMultipleCommitsWithPRURLs(repo *git.Repository, upstreamBranch string, updates []CommitPRURL) error {
+	if len(updates) == 0 {
+		return nil
+	}
+
+	// Build a map of hash -> new message for each commit that needs updating
+	var commitsToUpdate []rewordEntry
+
+	prURLRegex := regexp.MustCompile(`(?m)^\s*PR URL:\s*https://github\.com/[^\s]+\s*$`)
+	cleanupNewlines := regexp.MustCompile(`\n\n+`)
+
+	for _, u := range updates {
+		currentMessage, err := repo.GitExec("log", "-1", "--pretty=format:%B", u.Hash)
+		if err != nil {
+			return fmt.Errorf("error getting commit message for %s: %v", u.Hash, err)
+		}
+
+		// Remove existing PR URL and add new one
+		cleaned := prURLRegex.ReplaceAllString(currentMessage, "")
+		cleaned = cleanupNewlines.ReplaceAllString(cleaned, "\n\n")
+		cleaned = strings.TrimSpace(cleaned)
+		newMessage := cleaned + "\n\nPR URL: " + u.PRURL
+
+		if newMessage == strings.TrimSpace(currentMessage) {
+			continue // already up to date
+		}
+
+		abbrev, err := repo.GitExec("rev-parse", "--short", u.Hash)
+		if err != nil {
+			return fmt.Errorf("error getting abbreviated hash for %s: %v", u.Hash, err)
+		}
+		commitsToUpdate = append(commitsToUpdate, rewordEntry{
+			abbrevHash: strings.TrimSpace(abbrev),
+			newMessage: newMessage,
+		})
+	}
+
+	if len(commitsToUpdate) == 0 {
+		fmt.Println("All PR URLs already up to date")
+		return nil
+	}
+
+	// Single commit: use amend
+	if len(updates) == 1 {
+		countOut, err := repo.GitExec("rev-list", "--count", fmt.Sprintf("%s..HEAD", upstreamBranch))
+		if err == nil && strings.TrimSpace(countOut) == "1" {
+			_, err = repo.GitExec("commit", "--amend", "-m", commitsToUpdate[0].newMessage)
+			if err != nil {
+				return fmt.Errorf("error amending commit: %v", err)
+			}
+			return nil
+		}
+	}
+
+	// Multiple commits: use interactive rebase
+	return updateMultipleCommitMessagesWithRebase(repo, upstreamBranch, commitsToUpdate)
+}
+
+// updateMultipleCommitMessagesWithRebase rewords multiple commits in a single rebase pass
+func updateMultipleCommitMessagesWithRebase(repo *git.Repository, upstreamBranch string, updates []rewordEntry) error {
+	// Check for uncommitted changes
+	statusOutput, err := repo.GitExec("status", "--porcelain")
+	if err != nil {
+		return fmt.Errorf("error checking git status: %v", err)
+	}
+
+	if strings.TrimSpace(statusOutput) != "" {
+		indexTreeHash, err := repo.GitExec("write-tree")
+		if err != nil {
+			return fmt.Errorf("error saving index state: %v", err)
+		}
+		indexTreeHash = strings.TrimSpace(indexTreeHash)
+
+		_, err = repo.GitExec("add", "-A")
+		if err != nil {
+			return fmt.Errorf("error adding all changes: %v", err)
+		}
+
+		_, err = repo.GitExec("commit", "-m", "TEMP: preserve all changes")
+		if err != nil {
+			return fmt.Errorf("error committing all changes: %v", err)
+		}
+
+		defer func() {
+			if _, restoreErr := repo.GitExec("reset", "--soft", "HEAD~1"); restoreErr != nil {
+				fmt.Printf("Warning: Failed to reset. Manual recovery: git reset --soft HEAD~1; git read-tree %s\n", indexTreeHash)
+				return
+			}
+			if _, restoreErr := repo.GitExec("read-tree", indexTreeHash); restoreErr != nil {
+				fmt.Printf("Warning: Failed to restore index. Manual recovery: git read-tree %s\n", indexTreeHash)
+			}
+		}()
+	}
+
+	tempDir, err := os.MkdirTemp("", "git-rebase-*")
+	if err != nil {
+		return fmt.Errorf("error creating temp directory: %v", err)
+	}
+	defer func() {
+		_ = os.RemoveAll(tempDir)
+	}()
+
+	// Build sed commands to mark all target commits for reword
+	var sedCommands []string
+	for _, u := range updates {
+		sedCommands = append(sedCommands, fmt.Sprintf("s/^pick %s /reword %s /", u.abbrevHash, u.abbrevHash))
+	}
+
+	todoEditorScript := filepath.Join(tempDir, "rebase-todo-editor.sh")
+	todoEditorContent := fmt.Sprintf("#!/bin/bash\nsed -i.bak '%s' \"$1\"\n", strings.Join(sedCommands, ";"))
+	if err := os.WriteFile(todoEditorScript, []byte(todoEditorContent), 0755); err != nil {
+		return fmt.Errorf("error creating todo editor script: %v", err)
+	}
+
+	// Write each commit message to a numbered file, and create an editor script
+	// that uses a counter to pick the right message file
+	for i, u := range updates {
+		msgFile := filepath.Join(tempDir, fmt.Sprintf("message-%d.txt", i))
+		if err := os.WriteFile(msgFile, []byte(u.newMessage), 0644); err != nil {
+			return fmt.Errorf("error creating message file: %v", err)
+		}
+	}
+
+	counterFile := filepath.Join(tempDir, "counter")
+	if err := os.WriteFile(counterFile, []byte("0"), 0644); err != nil {
+		return fmt.Errorf("error creating counter file: %v", err)
+	}
+
+	messageEditorScript := filepath.Join(tempDir, "commit-message-editor.sh")
+	messageEditorContent := fmt.Sprintf(`#!/bin/bash
+COUNTER=$(cat "%s")
+MSG_FILE="%s/message-${COUNTER}.txt"
+if [ -f "$MSG_FILE" ]; then
+    cp "$MSG_FILE" "$1"
+fi
+echo $((COUNTER + 1)) > "%s"
+`, counterFile, tempDir, counterFile)
+	if err := os.WriteFile(messageEditorScript, []byte(messageEditorContent), 0755); err != nil {
+		return fmt.Errorf("error creating message editor script: %v", err)
+	}
+
+	// Set up environment
+	originalGitEditor := os.Getenv("GIT_EDITOR")
+	originalGitSequenceEditor := os.Getenv("GIT_SEQUENCE_EDITOR")
+	_ = os.Setenv("GIT_SEQUENCE_EDITOR", todoEditorScript)
+	_ = os.Setenv("GIT_EDITOR", messageEditorScript)
+	defer func() {
+		if originalGitEditor != "" {
+			_ = os.Setenv("GIT_EDITOR", originalGitEditor)
+		} else {
+			_ = os.Unsetenv("GIT_EDITOR")
+		}
+		if originalGitSequenceEditor != "" {
+			_ = os.Setenv("GIT_SEQUENCE_EDITOR", originalGitSequenceEditor)
+		} else {
+			_ = os.Unsetenv("GIT_SEQUENCE_EDITOR")
+		}
+	}()
+
+	_, err = repo.GitExec("rebase", "-i", upstreamBranch)
+	if err != nil {
+		if _, abortErr := repo.GitExec("rebase", "--abort"); abortErr != nil {
+			fmt.Printf("Warning: failed to abort rebase: %v\n", abortErr)
+		}
+		return fmt.Errorf("error during interactive rebase: %v", err)
+	}
+
+	return nil
+}
+
 // updateCommitMessage updates a specific commit's message using the simplest reliable approach
 func updateCommitMessage(repo *git.Repository, upstreamBranch, commitHash, newMessage string) error {
 	// Count commits to determine strategy
