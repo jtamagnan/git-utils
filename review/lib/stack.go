@@ -157,7 +157,7 @@ func createStack(repo *git.Repository, upstream string, repoInfo *git.Repository
 		// Push cumulative commits up to this group's last commit
 		lastCommit := group.commits[len(group.commits)-1]
 		fmt.Printf("\nPushing commits up to %s to branch %s\n", lastCommit.Hash[:8], branchName)
-		_, err = repo.GitExec("push", "--force", upstream, fmt.Sprintf("%s:%s", lastCommit.Hash, branchName))
+		_, err = repo.GitExec("push", "--force", upstream, fmt.Sprintf("%s:refs/heads/%s", lastCommit.Hash, branchName))
 		if err != nil {
 			return fmt.Errorf("error pushing to %s: %v", branchName, err)
 		}
@@ -213,7 +213,7 @@ func createStack(repo *git.Repository, upstream string, repoInfo *git.Repository
 		}
 		lastCommit := group.commits[len(group.commits)-1]
 		branchName := groups[i].branchName
-		_, err = repo.GitExec("push", "--force", upstream, fmt.Sprintf("%s:%s", lastCommit.Hash, branchName))
+		_, err = repo.GitExec("push", "--force", upstream, fmt.Sprintf("%s:refs/heads/%s", lastCommit.Hash, branchName))
 		if err != nil {
 			fmt.Printf("Warning: failed to re-push branch %s: %v\n", branchName, err)
 		}
@@ -275,7 +275,7 @@ func updateStack(repo *git.Repository, upstream string, repoInfo *git.Repository
 			// Push commits up to this group
 			lastCommit := group.commits[len(group.commits)-1]
 			fmt.Printf("\nPushing new commits to branch %s\n", branchName)
-			_, err = repo.GitExec("push", "--force", upstream, fmt.Sprintf("%s:%s", lastCommit.Hash, branchName))
+			_, err = repo.GitExec("push", "--force", upstream, fmt.Sprintf("%s:refs/heads/%s", lastCommit.Hash, branchName))
 			if err != nil {
 				return fmt.Errorf("error pushing to %s: %v", branchName, err)
 			}
