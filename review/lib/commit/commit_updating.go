@@ -41,8 +41,14 @@ func UpdateOldestCommitWithPRURL(repo *git.Repository, upstreamBranch, prURL str
 		return fmt.Errorf("no commit hashes found")
 	}
 
+	fmt.Printf("DEBUG: found %d commits between %s and HEAD\n", len(commitHashes), upstreamBranch)
+	for i, h := range commitHashes {
+		fmt.Printf("DEBUG:   commit[%d]: %s\n", i, h)
+	}
+
 	// Get the oldest commit hash (first in the list)
 	oldestCommitHash := commitHashes[0]
+	fmt.Printf("DEBUG: oldest commit hash (target): %s\n", oldestCommitHash)
 
 	// Get the current commit message
 	currentMessage, err := repo.GitExec("log", "-1", "--pretty=format:%B", oldestCommitHash)
@@ -91,8 +97,10 @@ func updateCommitMessage(repo *git.Repository, upstreamBranch, commitHash, newMe
 	}
 
 	commitCount := strings.TrimSpace(countOut)
+	fmt.Printf("DEBUG: commit count: %s, strategy: ", commitCount)
 
 	if commitCount == "1" {
+		fmt.Println("amend")
 		// Single commit: just amend it
 		_, err = repo.GitExec("commit", "--amend", "-m", newMessage)
 		if err != nil {
@@ -102,6 +110,7 @@ func updateCommitMessage(repo *git.Repository, upstreamBranch, commitHash, newMe
 	}
 
 	// Multiple commits: use interactive rebase (much cleaner and preserves uncommitted changes)
+	fmt.Println("rebase")
 	return updateCommitMessageWithRebase(repo, upstreamBranch, commitHash, newMessage)
 }
 
@@ -164,12 +173,26 @@ func updateCommitMessageWithRebase(repo *git.Repository, upstreamBranch, commitH
 		}
 	}()
 
+	// Get the abbreviated hash that git will use in the rebase todo list.
+	// Git's abbreviation length varies by repo size (7 in small repos, 10+ in large ones).
+	abbrevHash, err := repo.GitExec("rev-parse", "--short", commitHash)
+	if err != nil {
+		return fmt.Errorf("error getting abbreviated hash for %s: %v", commitHash, err)
+	}
+	abbrevHash = strings.TrimSpace(abbrevHash)
+	fmt.Printf("DEBUG: looking for abbreviated hash %q (full: %s) in rebase todo\n", abbrevHash, commitHash)
+
 	// Create a script that will modify the rebase todo list
 	todoEditorScript := filepath.Join(tempDir, "rebase-todo-editor.sh")
 	todoEditorContent := fmt.Sprintf(`#!/bin/bash
 # Auto-generated script to mark specific commit for reword
+# Debug: show the todo list before modification
+echo "DEBUG: rebase todo before:" >&2
+cat "$1" >&2
 sed -i.bak 's/^pick %s /reword %s /' "$1"
-`, commitHash[:7], commitHash[:7]) // Use short hash (first 7 chars) as git does
+echo "DEBUG: rebase todo after:" >&2
+cat "$1" >&2
+`, abbrevHash, abbrevHash)
 
 	err = os.WriteFile(todoEditorScript, []byte(todoEditorContent), 0755)
 	if err != nil {
@@ -220,6 +243,18 @@ EOF
 			fmt.Printf("Warning: failed to abort rebase: %v\n", abortErr)
 		}
 		return fmt.Errorf("error during interactive rebase: %v", err)
+	}
+
+	// Verify the commit message was actually updated by checking the oldest commit
+	newHashes, verifyErr := repo.GitExec("log", fmt.Sprintf("%s..HEAD", upstreamBranch), "--pretty=format:%H", "--reverse")
+	if verifyErr == nil {
+		hashLines := strings.Split(strings.TrimSpace(newHashes), "\n")
+		if len(hashLines) > 0 && hashLines[0] != "" {
+			newMessage, verifyErr := repo.GitExec("log", "-1", "--pretty=format:%B", hashLines[0])
+			if verifyErr == nil {
+				fmt.Printf("DEBUG: oldest commit message after rebase: %q\n", strings.TrimSpace(newMessage))
+			}
+		}
 	}
 
 	return nil

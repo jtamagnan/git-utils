@@ -300,6 +300,77 @@ func TestUncommittedChangesPreservation(t *testing.T) {
 	})
 }
 
+// TestUpdateCommitMessageWithLongAbbrev tests that commit message updating works
+// when git uses longer abbreviated hashes (as happens in large repos like ../api/).
+// This was a real bug: the code hardcoded commitHash[:7] but git can use 10+ chars.
+func TestUpdateCommitMessageWithLongAbbrev(t *testing.T) {
+	testRepo := git.NewTestRepo(t)
+	defer testRepo.Cleanup()
+
+	testRepo.InDir(func() {
+		// Create initial commit on main
+		testRepo.AddCommit("README.md", "# Initial commit", "Initial commit")
+
+		// Set core.abbrev to 12 to simulate a large repo where git uses longer hashes
+		testRepo.GitExec("config", "core.abbrev", "12")
+
+		// Verify the config took effect
+		shortHash := testRepo.GitExec("rev-parse", "--short", "HEAD")
+		if len(shortHash) < 12 {
+			t.Fatalf("Expected short hash length >= 12, got %d (%s)", len(shortHash), shortHash)
+		}
+		t.Logf("Short hash length with core.abbrev=12: %d (%s)", len(shortHash), shortHash)
+
+		// Create a feature branch with multiple commits
+		testRepo.CreateBranch("feature")
+		testRepo.AddCommit("file1.txt", "content1", "First feature commit")
+		testRepo.AddCommit("file2.txt", "content2", "Second feature commit")
+		testRepo.AddCommit("file3.txt", "content3", "Third feature commit")
+
+		testRepo.RefreshRepo()
+
+		// Update the oldest commit with PR URL
+		prURL := "https://github.com/owner/repo/pull/999"
+		err := UpdateOldestCommitWithPRURL(testRepo.Repo, "main", prURL)
+		if err != nil {
+			t.Fatalf("Failed to update commit with PR URL (long abbrev): %v", err)
+		}
+
+		// Verify the oldest commit message was updated
+		commitHashes, err := testRepo.Repo.GitExec(
+			"log", "main..HEAD", "--pretty=format:%H", "--reverse",
+		)
+		if err != nil {
+			t.Fatalf("Failed to get commit hashes: %v", err)
+		}
+
+		oldestHash := strings.Split(strings.TrimSpace(commitHashes), "\n")[0]
+		fullMessage, err := testRepo.Repo.GitExec("log", "-1", "--pretty=format:%B", oldestHash)
+		if err != nil {
+			t.Fatalf("Failed to get commit message: %v", err)
+		}
+
+		if !strings.Contains(fullMessage, "PR URL: "+prURL) {
+			t.Errorf("PR URL not found in oldest commit message with long abbrev. Got: %q", fullMessage)
+		}
+		if !strings.Contains(fullMessage, "First feature commit") {
+			t.Errorf("Original commit message lost. Got: %q", fullMessage)
+		}
+
+		// Verify other commits weren't affected
+		summaries := testRepo.Repo.RefSummaries("main")
+		if len(summaries) != 3 {
+			t.Fatalf("Expected 3 commits, got %d", len(summaries))
+		}
+		if summaries[1] != "Second feature commit" {
+			t.Errorf("Second commit was affected: %q", summaries[1])
+		}
+		if summaries[2] != "Third feature commit" {
+			t.Errorf("Third commit was affected: %q", summaries[2])
+		}
+	})
+}
+
 func TestStagedChangesPreservation(t *testing.T) {
 	testRepo := git.NewTestRepo(t)
 	defer testRepo.Cleanup()

@@ -158,11 +158,8 @@ func testLintWithTrackedBranch(t *testing.T) {
 	testRepo := setupTestRepoWithPreCommit(t)
 	defer testRepo.Cleanup()
 
-	// Create a proper upstream branch setup
-	testRepo.AddCommit("initial.txt", "initial content", "Initial commit")
-	testRepo.AddRemote("origin", "https://github.com/example/repo.git")
-	testRepo.CreateRemoteTrackingBranch("origin", "main")
-	testRepo.SetUpstream("origin", "main")
+	// Add another commit (upstream tracking is already set up by setupTestRepoWithPreCommit)
+	testRepo.AddCommit("initial.txt", "initial content", "Second commit")
 
 	testRepo.InDir(func() {
 		// Test running with a properly tracked branch
@@ -180,7 +177,7 @@ func testLintWithTrackedBranch(t *testing.T) {
 	})
 }
 
-// setupTestRepoWithPreCommit creates a test repo with basic pre-commit setup
+// setupTestRepoWithPreCommit creates a test repo with basic pre-commit setup and upstream tracking
 func setupTestRepoWithPreCommit(t *testing.T) *git.TestRepo {
 	testRepo := git.NewTestRepo(t)
 
@@ -197,6 +194,11 @@ func setupTestRepoWithPreCommit(t *testing.T) *git.TestRepo {
 
 	// Create an initial commit so we have something to work with
 	testRepo.AddCommit("README.md", "# Test Repository\n", "Initial commit")
+
+	// Set up upstream tracking so AllFiles: false tests can resolve the tracking branch
+	testRepo.AddRemote("origin", "https://github.com/example/repo.git")
+	testRepo.CreateRemoteTrackingBranch("origin", "main")
+	testRepo.SetUpstream("origin", "main")
 
 	return testRepo
 }
