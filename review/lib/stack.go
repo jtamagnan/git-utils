@@ -112,8 +112,10 @@ func Stack(args StackParsedArgs) error {
 }
 
 // groupCommits organizes commits into groups based on PR ownership.
-// Each commit with a PR URL starts a new group. Commits without PR URLs
-// join the previous group (or form a new group if they appear before any PR).
+// Each commit with a PR URL starts a new group. Commits with a bare
+// "PR URL:" sentinel (WantsPR but no PRNum) also start a new group
+// that will get a new PR. Commits without any PR marker join the
+// previous group (or form a new group if they appear before any PR).
 func groupCommits(commits []pr.StackCommitPR, defaultBase string) []stackGroup {
 	var groups []stackGroup
 
@@ -125,8 +127,13 @@ func groupCommits(commits []pr.StackCommitPR, defaultBase string) []stackGroup {
 				prNumber: c.PRNum,
 				prURL:    c.PRURL,
 			})
+		} else if c.WantsPR {
+			// Bare "PR URL:" sentinel - start a new group that needs a new PR
+			groups = append(groups, stackGroup{
+				commits: []pr.StackCommitPR{c},
+			})
 		} else if len(groups) > 0 {
-			// No PR URL - join the previous group
+			// No PR marker - join the previous group
 			groups[len(groups)-1].commits = append(groups[len(groups)-1].commits, c)
 		} else {
 			// Orphan commit before any PR - create new group

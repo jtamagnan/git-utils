@@ -31,16 +31,17 @@ func DetectExistingPR(repo *git.Repository, upstreamBranch string) (int, error) 
 
 // StackCommitPR holds the PR info extracted from a single commit
 type StackCommitPR struct {
-	Hash    string
-	Summary string
-	PRURL   string // empty if no PR URL found
-	PRNum   int    // 0 if no PR URL found
+	Hash     string
+	Summary  string
+	PRURL    string // empty if no PR URL found
+	PRNum    int    // 0 if no PR URL found
+	WantsPR  bool   // true if commit has a bare "PR URL:" sentinel (requests a new PR)
 }
 
 // DetectAllPRs returns per-commit PR info for all commits between parent and HEAD (oldest first)
 func DetectAllPRs(repo *git.Repository, upstreamBranch string) ([]StackCommitPR, error) {
 	results := git.RefExec(repo, func(commit *object.Commit) StackCommitPR {
-		url, num := extractPRURLAndNumber(commit.Message)
+		url, num, wantsPR := extractPRInfo(commit.Message)
 		// Use first line of message as summary
 		summary := commit.Message
 		if idx := strings.Index(summary, "\n"); idx != -1 {
@@ -51,6 +52,7 @@ func DetectAllPRs(repo *git.Repository, upstreamBranch string) ([]StackCommitPR,
 			Summary: summary,
 			PRURL:   url,
 			PRNum:   num,
+			WantsPR: wantsPR,
 		}
 	}, upstreamBranch)
 
@@ -61,18 +63,36 @@ func DetectAllPRs(repo *git.Repository, upstreamBranch string) ([]StackCommitPR,
 	return results, nil
 }
 
-// extractPRURLAndNumber extracts both the full PR URL and number from a commit message
-func extractPRURLAndNumber(message string) (string, int) {
-	re := regexp.MustCompile(`PR URL:\s*(https://github\.com/[^/]+/[^/]+/pull/(\d+))`)
-	matches := re.FindStringSubmatch(message)
+// prURLWithLinkRegex matches "PR URL:" followed by a GitHub PR link
+var prURLWithLinkRegex = regexp.MustCompile(`PR URL:\s*(https://github\.com/[^/]+/[^/]+/pull/(\d+))`)
 
+// prURLSentinelRegex matches a bare "PR URL:" line (with optional trailing whitespace but no URL)
+var prURLSentinelRegex = regexp.MustCompile(`(?m)^PR URL:\s*$`)
+
+// extractPRInfo extracts PR URL, number, and whether the commit wants a new PR.
+// Returns (url, number, wantsPR):
+//   - Has PR URL:   ("https://...", 123, true)
+//   - Bare sentinel: ("", 0, true)
+//   - No marker:     ("", 0, false)
+func extractPRInfo(message string) (string, int, bool) {
+	matches := prURLWithLinkRegex.FindStringSubmatch(message)
 	if len(matches) >= 3 {
 		if prNumber, err := strconv.Atoi(matches[2]); err == nil {
-			return matches[1], prNumber
+			return matches[1], prNumber, true
 		}
 	}
 
-	return "", 0
+	if prURLSentinelRegex.MatchString(message) {
+		return "", 0, true
+	}
+
+	return "", 0, false
+}
+
+// extractPRURLAndNumber extracts both the full PR URL and number from a commit message
+func extractPRURLAndNumber(message string) (string, int) {
+	url, num, _ := extractPRInfo(message)
+	return url, num
 }
 
 // extractPRNumber extracts the PR number from a commit message containing "PR URL: ..."

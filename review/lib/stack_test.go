@@ -107,6 +107,62 @@ func TestGroupCommits_OrphanBeforeFirst(t *testing.T) {
 	}
 }
 
+func TestGroupCommits_SentinelStartsNewGroup(t *testing.T) {
+	// B has a bare "PR URL:" sentinel — it should start its own group
+	commits := []pr.StackCommitPR{
+		{Hash: "aaa", Summary: "First", PRURL: "https://github.com/o/r/pull/1", PRNum: 1, WantsPR: true},
+		{Hash: "bbb", Summary: "New PR here", PRURL: "", PRNum: 0, WantsPR: true},
+		{Hash: "ccc", Summary: "Third", PRURL: "https://github.com/o/r/pull/2", PRNum: 2, WantsPR: true},
+	}
+
+	groups := groupCommits(commits, "main")
+
+	if len(groups) != 3 {
+		t.Fatalf("Expected 3 groups (sentinel should not be absorbed), got %d", len(groups))
+	}
+
+	// First group: A with existing PR
+	if groups[0].prNumber != 1 {
+		t.Errorf("Group 0: expected prNumber 1, got %d", groups[0].prNumber)
+	}
+
+	// Second group: B (sentinel, needs new PR)
+	if groups[1].prNumber != 0 {
+		t.Errorf("Group 1: expected prNumber 0 (new PR), got %d", groups[1].prNumber)
+	}
+	if len(groups[1].commits) != 1 {
+		t.Errorf("Group 1: expected 1 commit, got %d", len(groups[1].commits))
+	}
+
+	// Third group: C with existing PR
+	if groups[2].prNumber != 2 {
+		t.Errorf("Group 2: expected prNumber 2, got %d", groups[2].prNumber)
+	}
+}
+
+func TestGroupCommits_SentinelWithFollowingOrphan(t *testing.T) {
+	// B has sentinel, C is a plain orphan — C should be absorbed into B's group
+	commits := []pr.StackCommitPR{
+		{Hash: "aaa", Summary: "First", PRURL: "https://github.com/o/r/pull/1", PRNum: 1, WantsPR: true},
+		{Hash: "bbb", Summary: "New PR here", PRURL: "", PRNum: 0, WantsPR: true},
+		{Hash: "ccc", Summary: "Follow-up", PRURL: "", PRNum: 0, WantsPR: false},
+	}
+
+	groups := groupCommits(commits, "main")
+
+	if len(groups) != 2 {
+		t.Fatalf("Expected 2 groups, got %d", len(groups))
+	}
+
+	// Second group: B + C (orphan C absorbed into sentinel B's group)
+	if groups[1].prNumber != 0 {
+		t.Errorf("Group 1: expected prNumber 0, got %d", groups[1].prNumber)
+	}
+	if len(groups[1].commits) != 2 {
+		t.Errorf("Group 1: expected 2 commits, got %d", len(groups[1].commits))
+	}
+}
+
 func TestBuildStackSection(t *testing.T) {
 	prs := []stackPRInfo{
 		{title: "Add auth module", prNumber: 10},

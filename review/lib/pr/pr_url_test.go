@@ -237,3 +237,109 @@ func TestExtractPRNumber(t *testing.T) {
 		})
 	}
 }
+
+func TestExtractPRInfo(t *testing.T) {
+	tests := []struct {
+		name        string
+		message     string
+		expectedURL string
+		expectedNum int
+		wantsPR     bool
+	}{
+		{
+			name:        "Full PR URL",
+			message:     "Fix bug\n\nPR URL: https://github.com/owner/repo/pull/42",
+			expectedURL: "https://github.com/owner/repo/pull/42",
+			expectedNum: 42,
+			wantsPR:     true,
+		},
+		{
+			name:        "Bare sentinel",
+			message:     "New feature\n\nPR URL:",
+			expectedURL: "",
+			expectedNum: 0,
+			wantsPR:     true,
+		},
+		{
+			name:        "Bare sentinel with trailing space",
+			message:     "New feature\n\nPR URL:   ",
+			expectedURL: "",
+			expectedNum: 0,
+			wantsPR:     true,
+		},
+		{
+			name:        "Bare sentinel mid-message",
+			message:     "New feature\n\nPR URL:\n\nSome other text",
+			expectedURL: "",
+			expectedNum: 0,
+			wantsPR:     true,
+		},
+		{
+			name:        "No marker at all",
+			message:     "Just a commit\n\nSome description",
+			expectedURL: "",
+			expectedNum: 0,
+			wantsPR:     false,
+		},
+		{
+			name:        "Empty message",
+			message:     "",
+			expectedURL: "",
+			expectedNum: 0,
+			wantsPR:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			url, num, wantsPR := extractPRInfo(tt.message)
+			if url != tt.expectedURL {
+				t.Errorf("URL: got %q, want %q", url, tt.expectedURL)
+			}
+			if num != tt.expectedNum {
+				t.Errorf("Num: got %d, want %d", num, tt.expectedNum)
+			}
+			if wantsPR != tt.wantsPR {
+				t.Errorf("WantsPR: got %v, want %v", wantsPR, tt.wantsPR)
+			}
+		})
+	}
+}
+
+func TestDetectAllPRsWithSentinel(t *testing.T) {
+	testRepo := git.NewTestRepo(t)
+	defer testRepo.Cleanup()
+
+	testRepo.InDir(func() {
+		testRepo.AddCommit("README.md", "# Init", "Initial commit")
+		testRepo.CreateBranch("feature")
+		testRepo.AddCommit("a.txt", "a", "First commit\n\nPR URL: https://github.com/owner/repo/pull/10")
+		testRepo.AddCommit("b.txt", "b", "Second commit\n\nPR URL:")
+		testRepo.AddCommit("c.txt", "c", "Third commit")
+		testRepo.RefreshRepo()
+
+		results, err := DetectAllPRs(testRepo.Repo, "main")
+		if err != nil {
+			t.Fatalf("DetectAllPRs failed: %v", err)
+		}
+
+		if len(results) != 3 {
+			t.Fatalf("Expected 3 commits, got %d", len(results))
+		}
+
+		// First commit: has PR #10, WantsPR=true
+		if results[0].PRNum != 10 || !results[0].WantsPR {
+			t.Errorf("Commit 0: expected PRNum=10, WantsPR=true; got PRNum=%d, WantsPR=%v", results[0].PRNum, results[0].WantsPR)
+		}
+
+		// Second commit: bare sentinel, WantsPR=true, PRNum=0
+		if results[1].PRNum != 0 || !results[1].WantsPR {
+			t.Errorf("Commit 1: expected PRNum=0, WantsPR=true; got PRNum=%d, WantsPR=%v", results[1].PRNum, results[1].WantsPR)
+		}
+
+		// Third commit: no marker, WantsPR=false
+		if results[2].PRNum != 0 || results[2].WantsPR {
+			t.Errorf("Commit 2: expected PRNum=0, WantsPR=false; got PRNum=%d, WantsPR=%v", results[2].PRNum, results[2].WantsPR)
+		}
+	})
+}
