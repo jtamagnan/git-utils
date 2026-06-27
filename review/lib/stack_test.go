@@ -173,10 +173,10 @@ func TestBuildStackSection(t *testing.T) {
 	// Test highlighting the second PR
 	section := buildStackSection(prs, 1)
 
-	expected := "## PR Stack\n" +
-		"1. `Add auth module` (#10)\n" +
-		"2. :star: `Add user profile` (#11)\n" +
-		"3. `Add settings page` (#12)\n"
+	expected := "---\n## PR Stack\n" +
+		"1. #10\n" +
+		"2. :star: #11\n" +
+		"3. #12\n"
 
 	if section != expected {
 		t.Errorf("buildStackSection mismatch.\nExpected:\n%s\nGot:\n%s", expected, section)
@@ -184,7 +184,7 @@ func TestBuildStackSection(t *testing.T) {
 
 	// Test highlighting the first PR
 	section = buildStackSection(prs, 0)
-	if !strings.HasPrefix(section, "## PR Stack\n1. :star:") {
+	if !strings.HasPrefix(section, "---\n## PR Stack\n1. :star:") {
 		t.Errorf("Expected first entry to be starred, got:\n%s", section)
 	}
 }
@@ -195,7 +195,7 @@ func TestBuildStackSection_SinglePR(t *testing.T) {
 	}
 
 	section := buildStackSection(prs, 0)
-	expected := "## PR Stack\n1. :star: `Solo PR` (#42)\n"
+	expected := "---\n## PR Stack\n1. :star: #42\n"
 
 	if section != expected {
 		t.Errorf("Expected:\n%s\nGot:\n%s", expected, section)
@@ -204,7 +204,7 @@ func TestBuildStackSection_SinglePR(t *testing.T) {
 
 func TestUpsertStackSection_Append(t *testing.T) {
 	body := "Some PR description.\n\n## Test plan\n- [ ] Test it"
-	section := "## PR Stack\n1. :star: `Foo` (#1)\n"
+	section := "---\n## PR Stack\n1. :star: #1\n"
 
 	result := upsertStackSection(body, section)
 
@@ -214,26 +214,42 @@ func TestUpsertStackSection_Append(t *testing.T) {
 	if !strings.Contains(result, "## PR Stack") {
 		t.Error("Stack section was not appended")
 	}
-	if !strings.Contains(result, ":star: `Foo` (#1)") {
+	if !strings.Contains(result, ":star: #1") {
 		t.Error("Stack entry not found")
 	}
 }
 
 func TestUpsertStackSection_Replace(t *testing.T) {
-	body := "Some description.\n\n## PR Stack\n1. :star: `Old` (#1)\n2. `Old2` (#2)\n\n## Test plan\n- [ ] done"
-	section := "## PR Stack\n1. `New` (#1)\n2. :star: `New2` (#2)\n3. `New3` (#3)\n"
+	body := "Some description.\n\n## PR Stack\n1. :star: #1\n2. #2\n\n## Test plan\n- [ ] done"
+	section := "---\n## PR Stack\n1. #1\n2. :star: #2\n3. #3\n"
 
 	result := upsertStackSection(body, section)
 
-	// Should have new stack section
-	if !strings.Contains(result, ":star: `New2` (#2)") {
+	if !strings.Contains(result, ":star: #2") {
 		t.Errorf("New stack entry not found in:\n%s", result)
 	}
-	// Should not have old stack entries
-	if strings.Contains(result, "`Old`") {
-		t.Errorf("Old stack entry still present in:\n%s", result)
+	if !strings.Contains(result, "## Test plan") {
+		t.Errorf("Test plan section was lost in:\n%s", result)
 	}
-	// Should preserve other sections
+	if !strings.Contains(result, "Some description.") {
+		t.Errorf("Original description was lost in:\n%s", result)
+	}
+}
+
+func TestUpsertStackSection_ReplaceWithSeparator(t *testing.T) {
+	// Existing body already has --- before ## PR Stack
+	body := "Some description.\n\n---\n## PR Stack\n1. :star: #1\n2. #2\n\n## Test plan\n- [ ] done"
+	section := "---\n## PR Stack\n1. #1\n2. :star: #2\n3. #3\n"
+
+	result := upsertStackSection(body, section)
+
+	// Should not have duplicate ---
+	if strings.Contains(result, "---\n---") {
+		t.Errorf("Duplicate --- separators in:\n%s", result)
+	}
+	if !strings.Contains(result, ":star: #2") {
+		t.Errorf("New stack entry not found in:\n%s", result)
+	}
 	if !strings.Contains(result, "## Test plan") {
 		t.Errorf("Test plan section was lost in:\n%s", result)
 	}
