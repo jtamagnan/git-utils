@@ -156,12 +156,13 @@ type stackPRInfo struct {
 // currentIndex is the 0-based index of the PR being described.
 func buildStackSection(prs []stackPRInfo, currentIndex int) string {
 	var b strings.Builder
+	b.WriteString("---\n")
 	b.WriteString("## PR Stack\n")
 	for i, p := range prs {
 		if i == currentIndex {
-			b.WriteString(fmt.Sprintf("%d. :star: `%s` (#%d)\n", i+1, p.title, p.prNumber))
+			b.WriteString(fmt.Sprintf("%d. :star: #%d\n", i+1, p.prNumber))
 		} else {
-			b.WriteString(fmt.Sprintf("%d. `%s` (#%d)\n", i+1, p.title, p.prNumber))
+			b.WriteString(fmt.Sprintf("%d. #%d\n", i+1, p.prNumber))
 		}
 	}
 	return b.String()
@@ -424,15 +425,13 @@ func updateStack(repo *git.Repository, upstream string, repoInfo *git.Repository
 			prNumber: group.prNumber,
 		})
 
-		if group.prURL != "" {
+		// Fetch the current PR body so the stack section is additive
+		githubPR, err := githubapi.GetExistingPR(repoInfo.Owner, repoInfo.Name, group.prNumber)
+		if err == nil {
+			prBodies[group.prNumber] = githubPR.GetBody()
+			allPRURLs = append(allPRURLs, fmt.Sprintf("  %d. PR #%d: %s", i+1, group.prNumber, *githubPR.HTMLURL))
+		} else if group.prURL != "" {
 			allPRURLs = append(allPRURLs, fmt.Sprintf("  %d. PR #%d: %s", i+1, group.prNumber, group.prURL))
-			prBodies[group.prNumber] = "" // new PR, body already set during creation
-		} else {
-			githubPR, err := githubapi.GetExistingPR(repoInfo.Owner, repoInfo.Name, group.prNumber)
-			if err == nil {
-				allPRURLs = append(allPRURLs, fmt.Sprintf("  %d. PR #%d: %s", i+1, group.prNumber, *githubPR.HTMLURL))
-				prBodies[group.prNumber] = githubPR.GetBody()
-			}
 		}
 	}
 
