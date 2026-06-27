@@ -220,11 +220,39 @@ func TestUpsertStackSection_Append(t *testing.T) {
 }
 
 func TestUpsertStackSection_Replace(t *testing.T) {
-	body := "Some description.\n\n## PR Stack\n1. :star: #1\n2. #2\n\n## Test plan\n- [ ] done"
+	body := "Some description.\n\n## Test plan\n- [ ] done\n\n## PR Stack\n1. :star: #1\n2. #2\n"
 	section := "---\n## PR Stack\n1. #1\n2. :star: #2\n3. #3\n"
 
 	result := upsertStackSection(body, section)
 
+	if !strings.Contains(result, ":star: #2") {
+		t.Errorf("New stack entry not found in:\n%s", result)
+	}
+	if strings.Count(result, "## PR Stack") != 1 {
+		t.Errorf("Expected exactly 1 PR Stack section in:\n%s", result)
+	}
+	if !strings.Contains(result, "## Test plan") {
+		t.Errorf("Test plan section was lost in:\n%s", result)
+	}
+	if !strings.Contains(result, "Some description.") {
+		t.Errorf("Original description was lost in:\n%s", result)
+	}
+}
+
+func TestUpsertStackSection_ReplaceWithSeparator(t *testing.T) {
+	// Existing body already has --- before ## PR Stack (at end)
+	body := "Some description.\n\n## Test plan\n- [ ] done\n\n---\n## PR Stack\n1. :star: #1\n2. #2\n"
+	section := "---\n## PR Stack\n1. #1\n2. :star: #2\n3. #3\n"
+
+	result := upsertStackSection(body, section)
+
+	// Should not have duplicate ---
+	if strings.Count(result, "---") > 1 {
+		t.Errorf("Duplicate --- separators in:\n%s", result)
+	}
+	if strings.Count(result, "## PR Stack") != 1 {
+		t.Errorf("Expected exactly 1 PR Stack section in:\n%s", result)
+	}
 	if !strings.Contains(result, ":star: #2") {
 		t.Errorf("New stack entry not found in:\n%s", result)
 	}
@@ -236,16 +264,15 @@ func TestUpsertStackSection_Replace(t *testing.T) {
 	}
 }
 
-func TestUpsertStackSection_ReplaceWithSeparator(t *testing.T) {
-	// Existing body already has --- before ## PR Stack
-	body := "Some description.\n\n---\n## PR Stack\n1. :star: #1\n2. #2\n\n## Test plan\n- [ ] done"
-	section := "---\n## PR Stack\n1. #1\n2. :star: #2\n3. #3\n"
+func TestUpsertStackSection_CRLF(t *testing.T) {
+	// GitHub API returns \r\n line endings, stack section at end
+	body := "Some description.\r\n\r\n## Test plan\r\n- [ ] done\r\n\r\n---\r\n## PR Stack\r\n1. :star: #1\r\n2. #2\r\n"
+	section := "---\n## PR Stack\n1. #1\n2. :star: #2\n"
 
 	result := upsertStackSection(body, section)
 
-	// Should not have duplicate ---
-	if strings.Contains(result, "---\n---") {
-		t.Errorf("Duplicate --- separators in:\n%s", result)
+	if strings.Count(result, "## PR Stack") != 1 {
+		t.Errorf("Expected exactly 1 PR Stack section in:\n%s", result)
 	}
 	if !strings.Contains(result, ":star: #2") {
 		t.Errorf("New stack entry not found in:\n%s", result)
@@ -253,7 +280,18 @@ func TestUpsertStackSection_ReplaceWithSeparator(t *testing.T) {
 	if !strings.Contains(result, "## Test plan") {
 		t.Errorf("Test plan section was lost in:\n%s", result)
 	}
-	if !strings.Contains(result, "Some description.") {
-		t.Errorf("Original description was lost in:\n%s", result)
+}
+
+func TestUpsertStackSection_NoTrailingNewline(t *testing.T) {
+	body := "Some description.\n\n---\n## PR Stack\n1. :star: #1\n2. #2"
+	section := "---\n## PR Stack\n1. #1\n2. :star: #2\n"
+
+	result := upsertStackSection(body, section)
+
+	if strings.Count(result, "## PR Stack") > 1 {
+		t.Errorf("Duplicate PR Stack sections in:\n%s", result)
+	}
+	if !strings.Contains(result, ":star: #2") {
+		t.Errorf("New stack entry not found in:\n%s", result)
 	}
 }

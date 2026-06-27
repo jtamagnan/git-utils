@@ -3,7 +3,6 @@ package review
 import (
 	"fmt"
 	"os/exec"
-	"regexp"
 	"strings"
 
 	"github.com/google/go-github/v71/github"
@@ -168,15 +167,30 @@ func buildStackSection(prs []stackPRInfo, currentIndex int) string {
 	return b.String()
 }
 
-// stackSectionRegex matches an existing "## PR Stack" section, including an optional preceding "---" separator
-var stackSectionRegex = regexp.MustCompile(`(?m)(?:^---\n)?^## PR Stack\n(?:[^\n]*\n)*?(?:\n|$)`)
+// removeStackSection removes an existing "## PR Stack" section from body,
+// including an optional preceding "---" separator. Works with both \n and \r\n.
+func removeStackSection(body string) string {
+	normalized := strings.ReplaceAll(body, "\r\n", "\n")
+
+	idx := strings.Index(normalized, "## PR Stack")
+	if idx < 0 {
+		return normalized
+	}
+
+	before := strings.TrimRight(normalized[:idx], " \t\n")
+
+	// Also strip a preceding "---" line
+	if strings.HasSuffix(before, "---") {
+		before = strings.TrimRight(before[:len(before)-3], " \t\n")
+	}
+
+	return before
+}
 
 // upsertStackSection replaces an existing PR Stack section in body, or appends one.
 func upsertStackSection(body, section string) string {
-	if stackSectionRegex.MatchString(body) {
-		return strings.TrimSpace(stackSectionRegex.ReplaceAllString(body, section)) + "\n"
-	}
-	return strings.TrimSpace(body) + "\n\n" + section
+	cleaned := removeStackSection(body)
+	return strings.TrimSpace(cleaned) + "\n\n" + section
 }
 
 // updateStackDescriptions updates all PRs in the stack with the PR Stack section
