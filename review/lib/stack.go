@@ -169,7 +169,7 @@ func buildStackSection(prs []stackPRInfo, currentIndex int) string {
 }
 
 // stackSectionRegex matches an existing "## PR Stack" section, including an optional preceding "---" separator
-var stackSectionRegex = regexp.MustCompile(`(?ms)(?:^---\n)?^## PR Stack\n(?:.*\n)*?(?:\n|$)`)
+var stackSectionRegex = regexp.MustCompile(`(?m)(?:^---\n)?^## PR Stack\n(?:[^\n]*\n)*?(?:\n|$)`)
 
 // upsertStackSection replaces an existing PR Stack section in body, or appends one.
 func upsertStackSection(body, section string) string {
