@@ -427,10 +427,22 @@ func updateStack(repo *git.Repository, upstream string, repoInfo *git.Repository
 			return fmt.Errorf("error pushing to %s: %v", group.branchName, err)
 		}
 
-		// Update the PR base branch
-		err = githubapi.UpdatePRBase(repoInfo.Owner, repoInfo.Name, group.prNumber, group.baseBranch)
-		if err != nil {
-			fmt.Printf("Warning: failed to update base for PR #%d: %v\n", group.prNumber, err)
+		// Fetch the current PR so we can check the base and get the body
+		githubPR, err := githubapi.GetExistingPR(repoInfo.Owner, repoInfo.Name, group.prNumber)
+		if err == nil {
+			// Only update the base branch if it differs from what we want
+			currentBase := githubPR.GetBase().GetRef()
+			if currentBase != group.baseBranch {
+				err = githubapi.UpdatePRBase(repoInfo.Owner, repoInfo.Name, group.prNumber, group.baseBranch)
+				if err != nil {
+					fmt.Printf("Warning: failed to update base for PR #%d: %v\n", group.prNumber, err)
+				}
+			}
+
+			prBodies[group.prNumber] = githubPR.GetBody()
+			allPRURLs = append(allPRURLs, fmt.Sprintf("  %d. PR #%d: %s", i+1, group.prNumber, *githubPR.HTMLURL))
+		} else if group.prURL != "" {
+			allPRURLs = append(allPRURLs, fmt.Sprintf("  %d. PR #%d: %s", i+1, group.prNumber, group.prURL))
 		}
 
 		// Collect PR info for stack description and summary
@@ -438,15 +450,6 @@ func updateStack(repo *git.Repository, upstream string, repoInfo *git.Repository
 			title:    group.commits[0].Summary,
 			prNumber: group.prNumber,
 		})
-
-		// Fetch the current PR body so the stack section is additive
-		githubPR, err := githubapi.GetExistingPR(repoInfo.Owner, repoInfo.Name, group.prNumber)
-		if err == nil {
-			prBodies[group.prNumber] = githubPR.GetBody()
-			allPRURLs = append(allPRURLs, fmt.Sprintf("  %d. PR #%d: %s", i+1, group.prNumber, *githubPR.HTMLURL))
-		} else if group.prURL != "" {
-			allPRURLs = append(allPRURLs, fmt.Sprintf("  %d. PR #%d: %s", i+1, group.prNumber, group.prURL))
-		}
 	}
 
 	// Update all PR descriptions with the PR Stack section
