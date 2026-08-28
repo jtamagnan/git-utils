@@ -56,8 +56,8 @@ func UpdateOldestCommitWithPRURL(repo *git.Repository, upstreamBranch, prURL str
 		return fmt.Errorf("error getting current commit message: %v", err)
 	}
 
-	// Remove any existing PR URL lines from the commit message
-	prURLRegex := regexp.MustCompile(`(?m)^\s*PR URL:\s*https://github\.com/[^\s]+\s*$`)
+	// Remove any existing PR URL lines from the commit message (with or without a URL)
+	prURLRegex := regexp.MustCompile(`(?m)^\s*PR URL:\s*(https://github\.com/[^\s]+)?\s*$`)
 	cleanedMessage := prURLRegex.ReplaceAllString(currentMessage, "")
 
 	// Clean up any extra newlines left behind
@@ -109,7 +109,7 @@ func UpdateMultipleCommitsWithPRURLs(repo *git.Repository, upstreamBranch string
 	// Build a map of hash -> new message for each commit that needs updating
 	var commitsToUpdate []rewordEntry
 
-	prURLRegex := regexp.MustCompile(`(?m)^\s*PR URL:\s*https://github\.com/[^\s]+\s*$`)
+	prURLRegex := regexp.MustCompile(`(?m)^\s*PR URL:\s*(https://github\.com/[^\s]+)?\s*$`)
 	cleanupNewlines := regexp.MustCompile(`\n\n+`)
 
 	for _, u := range updates {

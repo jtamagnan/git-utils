@@ -371,6 +371,59 @@ func TestUpdateCommitMessageWithLongAbbrev(t *testing.T) {
 	})
 }
 
+func TestUpdateCommitMessageReplaceSentinel(t *testing.T) {
+	testRepo := git.NewTestRepo(t)
+	defer testRepo.Cleanup()
+
+	testRepo.InDir(func() {
+		// Create initial commit on main
+		testRepo.AddCommit("README.md", "# Initial commit", "Initial commit")
+
+		// Create a feature branch with a commit that has a bare "PR URL:" sentinel
+		testRepo.CreateBranch("feature")
+		testRepo.AddCommit("file1.txt", "content1", "Add feature\n\nPR URL:")
+
+		testRepo.RefreshRepo()
+
+		// Verify the sentinel is there
+		fullMessageBefore, err := testRepo.Repo.GitExec("log", "-1", "--pretty=format:%B")
+		if err != nil {
+			t.Fatalf("Failed to get commit message: %v", err)
+		}
+		if !strings.Contains(fullMessageBefore, "PR URL:") {
+			t.Fatalf("Expected sentinel in commit message, got: %q", fullMessageBefore)
+		}
+
+		// Update with a real PR URL — should replace the sentinel, not append
+		prURL := "https://github.com/owner/repo/pull/42"
+		err = UpdateOldestCommitWithPRURL(testRepo.Repo, "main", prURL)
+		if err != nil {
+			t.Fatalf("Failed to update commit with PR URL: %v", err)
+		}
+
+		fullMessageAfter, err := testRepo.Repo.GitExec("log", "-1", "--pretty=format:%B")
+		if err != nil {
+			t.Fatalf("Failed to get commit message: %v", err)
+		}
+
+		// Should contain the new PR URL
+		if !strings.Contains(fullMessageAfter, "PR URL: "+prURL) {
+			t.Errorf("PR URL not found in commit message. Got: %q", fullMessageAfter)
+		}
+
+		// Should NOT have a bare "PR URL:" line (the sentinel should be replaced)
+		count := strings.Count(fullMessageAfter, "PR URL:")
+		if count != 1 {
+			t.Errorf("Expected exactly 1 'PR URL:' line, found %d in: %q", count, fullMessageAfter)
+		}
+
+		// Original message should still be there
+		if !strings.Contains(fullMessageAfter, "Add feature") {
+			t.Errorf("Original commit message lost. Got: %q", fullMessageAfter)
+		}
+	})
+}
+
 func TestStagedChangesPreservation(t *testing.T) {
 	testRepo := git.NewTestRepo(t)
 	defer testRepo.Cleanup()
