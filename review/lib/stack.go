@@ -323,6 +323,9 @@ func updateStack(repo *git.Repository, upstream string, repoInfo *git.Repository
 
 	initialContent := template.FindPRTemplate()
 
+	// Cache fetched PRs so we don't re-fetch them in the second pass
+	cachedPRs := make(map[int]*github.PullRequest)
+
 	// First pass: resolve branch names for existing PRs, create new PRs for orphan groups
 	previousBase := ""
 	for i, group := range groups {
@@ -338,10 +341,16 @@ func updateStack(repo *git.Repository, upstream string, repoInfo *git.Repository
 		groups[i].baseBranch = previousBase
 
 		if group.prNumber > 0 {
-			// Existing PR - get its branch name
-			branchName, err := githubapi.GetRemoteBranchFromPR(repoInfo.Owner, repoInfo.Name, group.prNumber)
+			// Existing PR - fetch it once and cache for later use
+			githubPR, err := githubapi.GetExistingPR(repoInfo.Owner, repoInfo.Name, group.prNumber)
 			if err != nil {
-				return fmt.Errorf("error getting branch for PR #%d: %v", group.prNumber, err)
+				return fmt.Errorf("error getting PR #%d: %v", group.prNumber, err)
+			}
+			cachedPRs[group.prNumber] = githubPR
+
+			branchName := githubPR.GetHead().GetRef()
+			if branchName == "" {
+				return fmt.Errorf("PR #%d has no head branch information", group.prNumber)
 			}
 			groups[i].branchName = branchName
 			previousBase = branchName
@@ -427,9 +436,12 @@ func updateStack(repo *git.Repository, upstream string, repoInfo *git.Repository
 			return fmt.Errorf("error pushing to %s: %v", group.branchName, err)
 		}
 
-		// Fetch the current PR so we can check the base and get the body
-		githubPR, err := githubapi.GetExistingPR(repoInfo.Owner, repoInfo.Name, group.prNumber)
-		if err == nil {
+		// Use cached PR data if available, otherwise fetch
+		githubPR := cachedPRs[group.prNumber]
+		if githubPR == nil {
+			githubPR, err = githubapi.GetExistingPR(repoInfo.Owner, repoInfo.Name, group.prNumber)
+		}
+		if githubPR != nil {
 			// Only update the base branch if it differs from what we want
 			currentBase := githubPR.GetBase().GetRef()
 			if currentBase != group.baseBranch {
