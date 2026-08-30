@@ -10,13 +10,7 @@ import (
 
 // UpdateOldestCommitWithPRURL updates the oldest commit message to include the PR URL
 func UpdateOldestCommitWithPRURL(repo *git.Repository, upstreamBranch, prURL string) error {
-	// Get all commit summaries to find the oldest one
-	summaries := repo.RefSummaries(upstreamBranch)
-	if len(summaries) == 0 {
-		return fmt.Errorf("no commits found to update")
-	}
-
-	// Get the commit hashes in oldest-to-newest order
+	// Get the oldest commit hash
 	out, err := repo.GitExec(
 		"log",
 		fmt.Sprintf("%s..HEAD", upstreamBranch),
@@ -27,63 +21,20 @@ func UpdateOldestCommitWithPRURL(repo *git.Repository, upstreamBranch, prURL str
 		return fmt.Errorf("error getting commit hashes: %v", err)
 	}
 
-	lines := strings.Split(out, "\n")
 	var commitHashes []string
-	for _, line := range lines {
-		if strings.TrimSpace(line) != "" {
-			commitHashes = append(commitHashes, strings.TrimSpace(line))
+	for _, line := range strings.Split(out, "\n") {
+		if h := strings.TrimSpace(line); h != "" {
+			commitHashes = append(commitHashes, h)
 		}
 	}
 
 	if len(commitHashes) == 0 {
-		return fmt.Errorf("no commit hashes found")
+		return fmt.Errorf("no commits found to update")
 	}
 
-	fmt.Printf("DEBUG: found %d commits between %s and HEAD\n", len(commitHashes), upstreamBranch)
-	for i, h := range commitHashes {
-		fmt.Printf("DEBUG:   commit[%d]: %s\n", i, h)
-	}
-
-	// Get the oldest commit hash (first in the list)
-	oldestCommitHash := commitHashes[0]
-	fmt.Printf("DEBUG: oldest commit hash (target): %s\n", oldestCommitHash)
-
-	// Get the current commit message
-	currentMessage, err := repo.GitExec("log", "-1", "--pretty=format:%B", oldestCommitHash)
-	if err != nil {
-		return fmt.Errorf("error getting current commit message: %v", err)
-	}
-
-	// Remove any existing PR URL lines from the commit message (with or without a URL)
-	prURLRegex := regexp.MustCompile(`(?m)^\s*PR URL:\s*(https://github\.com/[^\s]+)?\s*$`)
-	cleanedMessage := prURLRegex.ReplaceAllString(currentMessage, "")
-
-	// Clean up any extra newlines left behind
-	cleanedMessage = regexp.MustCompile(`\n\n+`).ReplaceAllString(cleanedMessage, "\n\n")
-	cleanedMessage = strings.TrimSpace(cleanedMessage)
-
-	// Add the new PR URL to the commit message
-	updatedMessage := cleanedMessage + "\n\nPR URL: " + prURL
-
-	// Check if we actually made a change
-	if updatedMessage == currentMessage {
-		fmt.Println("PR URL already up to date in commit message")
-		return nil
-	}
-
-	if strings.Contains(currentMessage, "PR URL:") {
-		fmt.Printf("Replacing existing PR URL with new one: %s\n", prURL)
-	} else {
-		fmt.Printf("Adding PR URL to commit message: %s\n", prURL)
-	}
-
-	// Update the commit message
-	err = updateCommitMessage(repo, upstreamBranch, oldestCommitHash, updatedMessage)
-	if err != nil {
-		return fmt.Errorf("error updating commit message: %v", err)
-	}
-
-	return nil
+	return UpdateMultipleCommitsWithPRURLs(repo, upstreamBranch, []CommitPRURL{
+		{Hash: commitHashes[0], PRURL: prURL},
+	})
 }
 
 // CommitPRURL maps a commit hash to the PR URL to stamp on it
@@ -239,34 +190,3 @@ func rewriteCommitMessages(repo *git.Repository, upstreamBranch string, updates 
 	return nil
 }
 
-// updateCommitMessage updates a specific commit's message using the simplest reliable approach
-func updateCommitMessage(repo *git.Repository, upstreamBranch, commitHash, newMessage string) error {
-	// Count commits to determine strategy
-	countOut, err := repo.GitExec("rev-list", "--count", fmt.Sprintf("%s..HEAD", upstreamBranch))
-	if err != nil {
-		return fmt.Errorf("error counting commits: %v", err)
-	}
-
-	commitCount := strings.TrimSpace(countOut)
-	fmt.Printf("DEBUG: commit count: %s, strategy: ", commitCount)
-
-	if commitCount == "1" {
-		fmt.Println("amend")
-		// Single commit: just amend it
-		_, err = repo.GitExec("commit", "--amend", "-m", newMessage)
-		if err != nil {
-			return fmt.Errorf("error amending commit: %v", err)
-		}
-		return nil
-	}
-
-	// Multiple commits: rewrite with commit-tree
-	fmt.Println("commit-tree")
-	abbrev, err := repo.GitExec("rev-parse", "--short", commitHash)
-	if err != nil {
-		return fmt.Errorf("error getting abbreviated hash: %v", err)
-	}
-	return rewriteCommitMessages(repo, upstreamBranch, []rewordEntry{
-		{abbrevHash: strings.TrimSpace(abbrev), newMessage: newMessage},
-	})
-}
