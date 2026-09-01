@@ -4,6 +4,7 @@
   gopls,
   golangci-lint,
   pre-commit,
+  prek,
   # gitlint,
 }:
 mkShell {
@@ -12,6 +13,7 @@ mkShell {
     gopls
     golangci-lint
     pre-commit
+    prek
     # gitlint
   ];
 }

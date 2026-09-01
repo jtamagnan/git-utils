@@ -6,8 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
-
 	"github.com/jtamagnan/git-utils/git"
 )
 
@@ -97,22 +95,10 @@ func Lint(args ParsedArgs) error {
 
 	lintErr := runChecks(repo, args, &refRange{from: fromRef, to: toRef})
 
-	// Capture any linter fixups before resetting
-	stashed := false
-	if hasDirtyWorktree(repo) {
-		if _, err := repo.GitExec("stash", "push", "-m", "git-lint: fixups"); err == nil {
-			stashed = true
-		}
-	}
-
-	// Reset: undo tracked commit (unstaged), then undo staged commit (keep staged)
+	// Reset: undo tracked commit (unstaged), then undo staged commit (keep staged).
+	// Neither reset touches the worktree, so any linter fixups are preserved.
 	repo.GitExec("reset", "HEAD~1")
 	repo.GitExec("reset", "--soft", "HEAD~1")
-
-	// Re-apply linter fixups
-	if stashed {
-		repo.GitExec("stash", "pop")
-	}
 
 	return lintErr
 }
@@ -120,14 +106,6 @@ func Lint(args ParsedArgs) error {
 type refRange struct {
 	from string
 	to   string
-}
-
-func hasDirtyWorktree(repo *git.Repository) bool {
-	status, err := repo.GitExec("status", "--porcelain")
-	if err != nil {
-		return false
-	}
-	return strings.TrimSpace(status) != ""
 }
 
 func runChecks(repo *git.Repository, args ParsedArgs, refs *refRange) error {

@@ -418,6 +418,196 @@ func installFakeLintCommand(t *testing.T, script string) string {
 	return dir
 }
 
+// TestLintWithUntrackedFiles verifies that untracked files are not lost or
+// modified by the commit/stash/reset dance.
+func TestLintWithUntrackedFiles(t *testing.T) {
+	testRepo := git.NewTestRepo(t)
+	defer testRepo.Cleanup()
+
+	// Set up repo
+	testRepo.AddCommit("base.txt", "base content", "Initial commit")
+	testRepo.CreateFile(".pre-commit-config.yaml", "repos: []")
+	testRepo.GitExec("add", ".pre-commit-config.yaml")
+	testRepo.GitExec("commit", "-m", "Add pre-commit config")
+	testRepo.AddRemote("origin", "https://github.com/example/repo.git")
+	testRepo.CreateRemoteTrackingBranch("origin", "main")
+	testRepo.SetUpstream("origin", "main")
+
+	// Create staged, unstaged tracked, and untracked files
+	testRepo.CreateFile("staged.txt", "staged content")
+	testRepo.GitExec("add", "staged.txt")
+	testRepo.CreateFile("base.txt", "modified content")
+	testRepo.CreateFile("untracked.txt", "untracked content")
+
+	testRepo.InDir(func() {
+		headBefore := testRepo.GitExec("rev-parse", "HEAD")
+		statusBefore := testRepo.GitExec("status", "--porcelain")
+
+		fakeBin := installFakeLintCommand(t, "#!/bin/sh\nexit 0\n")
+		origPath := os.Getenv("PATH")
+		os.Setenv("PATH", fakeBin+":"+origPath)
+		defer os.Setenv("PATH", origPath)
+
+		args := ParsedArgs{
+			AllFiles:   false,
+			Stream:     false,
+			CheckNames: []string{},
+		}
+
+		err := Lint(args)
+		if err != nil {
+			t.Fatalf("Lint returned unexpected error: %v", err)
+		}
+
+		// HEAD unchanged
+		headAfter := testRepo.GitExec("rev-parse", "HEAD")
+		if headBefore != headAfter {
+			t.Errorf("HEAD changed: %s → %s", headBefore, headAfter)
+		}
+
+		// git status should be identical
+		statusAfter := testRepo.GitExec("status", "--porcelain")
+		if statusBefore != statusAfter {
+			t.Errorf("Working tree state changed!\n  before:\n%s\n  after:\n%s", statusBefore, statusAfter)
+		}
+
+		// Verify file contents are unchanged
+		for _, tc := range []struct{ name, expected string }{
+			{"staged.txt", "staged content"},
+			{"base.txt", "modified content"},
+			{"untracked.txt", "untracked content"},
+		} {
+			content, readErr := os.ReadFile(tc.name)
+			if readErr != nil {
+				t.Errorf("Failed to read %s: %v", tc.name, readErr)
+				continue
+			}
+			if string(content) != tc.expected {
+				t.Errorf("%s: expected %q, got %q", tc.name, tc.expected, string(content))
+			}
+		}
+
+		// No stash entries should have been created
+		stashList, _ := testRepo.GitExecWithError("stash", "list")
+		if stashList != "" {
+			t.Errorf("Unexpected stash entries after lint: %q", stashList)
+		}
+	})
+}
+
+// TestLintFixupOnStagedFile verifies that when the linter modifies a file that
+// was staged, the fixup shows as an unstaged modification on top of the staged version.
+func TestLintFixupOnStagedFile(t *testing.T) {
+	testRepo := git.NewTestRepo(t)
+	defer testRepo.Cleanup()
+
+	testRepo.AddCommit("target.txt", "original content\n", "Initial commit")
+	testRepo.CreateFile(".pre-commit-config.yaml", "repos: []")
+	testRepo.GitExec("add", ".pre-commit-config.yaml")
+	testRepo.GitExec("commit", "-m", "Add pre-commit config")
+	testRepo.AddRemote("origin", "https://github.com/example/repo.git")
+	testRepo.CreateRemoteTrackingBranch("origin", "main")
+	testRepo.SetUpstream("origin", "main")
+
+	// Stage a change to target.txt
+	testRepo.CreateFile("target.txt", "staged content\n")
+	testRepo.GitExec("add", "target.txt")
+
+	testRepo.InDir(func() {
+		headBefore := testRepo.GitExec("rev-parse", "HEAD")
+
+		// Fake prek that modifies the staged file (simulating autofix)
+		script := "#!/bin/sh\necho 'linter fixed content' > target.txt\nexit 0\n"
+		fakeBin := installFakeLintCommand(t, script)
+		origPath := os.Getenv("PATH")
+		os.Setenv("PATH", fakeBin+":"+origPath)
+		defer os.Setenv("PATH", origPath)
+
+		err := Lint(ParsedArgs{Stream: false})
+		if err != nil {
+			t.Fatalf("Lint returned unexpected error: %v", err)
+		}
+
+		// HEAD unchanged
+		headAfter := testRepo.GitExec("rev-parse", "HEAD")
+		if headBefore != headAfter {
+			t.Errorf("HEAD changed: %s → %s", headBefore, headAfter)
+		}
+
+		// target.txt should still be staged (the staged version)
+		stagedFiles := testRepo.GitExec("diff", "--cached", "--name-only")
+		if !strings.Contains(stagedFiles, "target.txt") {
+			t.Errorf("Expected target.txt to remain staged, got: %q", stagedFiles)
+		}
+
+		// The linter fixup should be present in the worktree
+		content, _ := os.ReadFile("target.txt")
+		if !strings.Contains(string(content), "linter fixed content") {
+			t.Errorf("Expected linter fixup in worktree, got: %q", string(content))
+		}
+
+		// No leftover stash entries
+		stashList, _ := testRepo.GitExecWithError("stash", "list")
+		if strings.Contains(stashList, "git-lint") {
+			t.Errorf("Leftover git-lint stash entry: %q", stashList)
+		}
+	})
+}
+
+// TestLintFailingLinterWithFixups verifies that when the linter auto-fixes files
+// but exits non-zero, the fixups are still preserved and the error is returned.
+func TestLintFailingLinterWithFixups(t *testing.T) {
+	testRepo := git.NewTestRepo(t)
+	defer testRepo.Cleanup()
+
+	testRepo.AddCommit("target.txt", "original content\n", "Initial commit")
+	testRepo.CreateFile(".pre-commit-config.yaml", "repos: []")
+	testRepo.GitExec("add", ".pre-commit-config.yaml")
+	testRepo.GitExec("commit", "-m", "Add pre-commit config")
+	testRepo.AddRemote("origin", "https://github.com/example/repo.git")
+	testRepo.CreateRemoteTrackingBranch("origin", "main")
+	testRepo.SetUpstream("origin", "main")
+
+	// Stage a change
+	testRepo.CreateFile("target.txt", "bad content\n")
+	testRepo.GitExec("add", "target.txt")
+
+	testRepo.InDir(func() {
+		headBefore := testRepo.GitExec("rev-parse", "HEAD")
+
+		// Fake prek that fixes the file but exits non-zero (common autofix behavior)
+		script := "#!/bin/sh\necho 'fixed content' > target.txt\nexit 1\n"
+		fakeBin := installFakeLintCommand(t, script)
+		origPath := os.Getenv("PATH")
+		os.Setenv("PATH", fakeBin+":"+origPath)
+		defer os.Setenv("PATH", origPath)
+
+		err := Lint(ParsedArgs{Stream: false})
+		// Should return an error (linter failed)
+		if err == nil {
+			t.Error("Expected error from failing linter, got nil")
+		}
+
+		// HEAD unchanged
+		headAfter := testRepo.GitExec("rev-parse", "HEAD")
+		if headBefore != headAfter {
+			t.Errorf("HEAD changed: %s → %s", headBefore, headAfter)
+		}
+
+		// target.txt should still be staged
+		stagedFiles := testRepo.GitExec("diff", "--cached", "--name-only")
+		if !strings.Contains(stagedFiles, "target.txt") {
+			t.Errorf("Expected target.txt to remain staged, got: %q", stagedFiles)
+		}
+
+		// Fixup should be present in worktree despite linter failure
+		content, _ := os.ReadFile("target.txt")
+		if !strings.Contains(string(content), "fixed content") {
+			t.Errorf("Expected linter fixup to be preserved despite failure, got: %q", string(content))
+		}
+	})
+}
+
 // TestLintCommand tests that lintCommand returns a valid command name
 func TestLintCommand(t *testing.T) {
 	cmd := lintCommand()
