@@ -85,27 +85,32 @@ func Stack(args StackParsedArgs) error {
 
 	fmt.Printf("Found %d commits in stack\n", len(commits))
 
-	// Determine mode: any commit with a PR URL means update mode
-	hasAnyPR := false
+	// Group commits: use sentinel-based grouping if any commit has a
+	// "PR URL:" line, otherwise default to one group per commit.
+	var groups []stackGroup
+	hasAnySentinel := false
+	hasExistingPR := false
 	for _, c := range commits {
+		if c.WantsPR {
+			hasAnySentinel = true
+		}
 		if c.PRNum > 0 {
-			hasAnyPR = true
-			break
+			hasExistingPR = true
 		}
 	}
 
-	if hasAnyPR {
-		// Update mode: group commits, absorbing orphans into their parent's PR
-		groups := groupCommits(commits, resolvedParent.GitHubBase)
-		return updateStack(repo, upstream, repoInfo, parentBranch, groups)
+	if hasAnySentinel {
+		groups = groupCommits(commits, resolvedParent.GitHubBase)
+	} else {
+		for _, c := range commits {
+			groups = append(groups, stackGroup{
+				commits: []pr.StackCommitPR{c},
+			})
+		}
 	}
 
-	// Create mode: one group per commit
-	var groups []stackGroup
-	for _, c := range commits {
-		groups = append(groups, stackGroup{
-			commits: []pr.StackCommitPR{c},
-		})
+	if hasExistingPR {
+		return updateStack(repo, upstream, repoInfo, parentBranch, groups)
 	}
 	return createStack(repo, upstream, repoInfo, parentBranch, resolvedParent.GitHubBase, groups, args.OpenBrowser)
 }
