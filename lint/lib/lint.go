@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/jtamagnan/git-utils/git"
 )
@@ -55,13 +56,15 @@ func Lint(args ParsedArgs) error {
 		return nil
 	}
 
-	// TODO(jat): Allow the "from-ref" to be set to a specific commit or upstream branch
-
-	// Get the upstream branch that we're tracking. TODO(jat): Consider using a merge-base
 	repo, err := git.GetRepository()
 	if err != nil {
 		return err
 	}
+
+	if args.AllFiles {
+		return runChecks(repo, args, nil)
+	}
+
 	branch, err := repo.Head()
 	if err != nil {
 		return err
@@ -71,20 +74,72 @@ func Lint(args ParsedArgs) error {
 		return fmt.Errorf("no upstream branch configured for current branch - run 'git branch --set-upstream-to=<remote>/<branch>' to set upstream")
 	}
 
-	writeTree, err := repo.WriteTree()
+	// Commit staged files, then stage+commit tracked modifications.
+	// This prevents prek from stashing tracked changes out from under us.
+	stagedCommit, err := repo.GitExec("commit", "--allow-empty", "-m", "git-lint: staged")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create temporary staged commit: %w", err)
+	}
+	_ = stagedCommit
+
+	// Stage all tracked modifications and commit them
+	repo.GitExec("add", "-u")
+	trackedCommit, err := repo.GitExec("commit", "--allow-empty", "-m", "git-lint: tracked")
+	if err != nil {
+		// Reset the first commit before returning
+		repo.GitExec("reset", "--soft", "HEAD~1")
+		return fmt.Errorf("failed to create temporary tracked commit: %w", err)
+	}
+	_ = trackedCommit
+
+	toRef := "HEAD"
+	fromRef := upstreamBranch
+
+	lintErr := runChecks(repo, args, &refRange{from: fromRef, to: toRef})
+
+	// Capture any linter fixups before resetting
+	stashed := false
+	if hasDirtyWorktree(repo) {
+		if _, err := repo.GitExec("stash", "push", "-m", "git-lint: fixups"); err == nil {
+			stashed = true
+		}
 	}
 
+	// Reset: undo tracked commit (unstaged), then undo staged commit (keep staged)
+	repo.GitExec("reset", "HEAD~1")
+	repo.GitExec("reset", "--soft", "HEAD~1")
+
+	// Re-apply linter fixups
+	if stashed {
+		repo.GitExec("stash", "pop")
+	}
+
+	return lintErr
+}
+
+type refRange struct {
+	from string
+	to   string
+}
+
+func hasDirtyWorktree(repo *git.Repository) bool {
+	status, err := repo.GitExec("status", "--porcelain")
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(status) != ""
+}
+
+func runChecks(repo *git.Repository, args ParsedArgs, refs *refRange) error {
 	var baseArgs []string
 	baseArgs = append(baseArgs, "run")
 	baseArgs = append(baseArgs, "--color=always")
 
 	if args.AllFiles {
 		baseArgs = append(baseArgs, "--all-files")
-	} else {
-		baseArgs = append(baseArgs, fmt.Sprintf("--from-ref=%s", upstreamBranch))
-		baseArgs = append(baseArgs, fmt.Sprintf("--to-ref=%s", writeTree))
+	} else if refs != nil {
+		baseArgs = append(baseArgs, fmt.Sprintf("--from-ref=%s", refs.from))
+		baseArgs = append(baseArgs, fmt.Sprintf("--to-ref=%s", refs.to))
 	}
 
 	lintCmd := lintCommand()
@@ -107,7 +162,6 @@ func Lint(args ParsedArgs) error {
 		}
 	}
 
-	// Return all errors joined together, or nil if no errors
 	if len(errs) > 0 {
 		return errors.Join(errs...)
 	}

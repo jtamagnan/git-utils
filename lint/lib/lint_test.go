@@ -1,6 +1,8 @@
 package lint
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -290,6 +292,130 @@ func TestMultipleCheckFailures(t *testing.T) {
 
 		t.Logf("Successfully verified that all %d checks ran and errors were collected", checkCount)
 	})
+}
+
+// TestLintWorktreeRestoration verifies that after Lint runs, staged files
+// remain staged, unstaged modifications remain unstaged, and HEAD is unchanged.
+func TestLintWorktreeRestoration(t *testing.T) {
+	testRepo := git.NewTestRepo(t)
+	defer testRepo.Cleanup()
+
+	// Set up repo with upstream tracking and pre-commit config
+	testRepo.AddCommit("committed.txt", "committed content", "Initial commit")
+	testRepo.CreateFile(".pre-commit-config.yaml", "repos: []")
+	testRepo.GitExec("add", ".pre-commit-config.yaml")
+	testRepo.GitExec("commit", "-m", "Add pre-commit config")
+	testRepo.AddRemote("origin", "https://github.com/example/repo.git")
+	testRepo.CreateRemoteTrackingBranch("origin", "main")
+	testRepo.SetUpstream("origin", "main")
+
+	// Create staged change
+	testRepo.CreateFile("staged.txt", "staged content")
+	testRepo.GitExec("add", "staged.txt")
+
+	// Create unstaged modification to a tracked file
+	testRepo.CreateFile("committed.txt", "modified content")
+
+	testRepo.InDir(func() {
+		// Record state before lint
+		headBefore := testRepo.GitExec("rev-parse", "HEAD")
+
+		// Install a fake prek that succeeds (exits 0)
+		fakeBin := installFakeLintCommand(t, "#!/bin/sh\nexit 0\n")
+		origPath := os.Getenv("PATH")
+		os.Setenv("PATH", fakeBin+":"+origPath)
+		defer os.Setenv("PATH", origPath)
+
+		args := ParsedArgs{
+			AllFiles:   false,
+			Stream:     false,
+			CheckNames: []string{},
+		}
+
+		err := Lint(args)
+		if err != nil {
+			t.Fatalf("Lint returned unexpected error: %v", err)
+		}
+
+		// HEAD should be unchanged
+		headAfter := testRepo.GitExec("rev-parse", "HEAD")
+		if headBefore != headAfter {
+			t.Errorf("HEAD changed: before=%s after=%s", headBefore, headAfter)
+		}
+
+		// staged.txt should still be staged
+		stagedFiles := testRepo.GitExec("diff", "--cached", "--name-only")
+		if !strings.Contains(stagedFiles, "staged.txt") {
+			t.Errorf("Expected staged.txt to remain staged, got staged files: %q", stagedFiles)
+		}
+
+		// committed.txt should have unstaged modifications
+		unstagedFiles := testRepo.GitExec("diff", "--name-only")
+		if !strings.Contains(unstagedFiles, "committed.txt") {
+			t.Errorf("Expected committed.txt to have unstaged modifications, got unstaged files: %q", unstagedFiles)
+		}
+	})
+}
+
+// TestLintFixupsPreserved verifies that when the linter modifies files,
+// those fixups are present in the worktree after Lint returns.
+func TestLintFixupsPreserved(t *testing.T) {
+	testRepo := git.NewTestRepo(t)
+	defer testRepo.Cleanup()
+
+	// Set up repo with upstream tracking and pre-commit config
+	testRepo.AddCommit("fixme.txt", "original content", "Initial commit")
+	testRepo.CreateFile(".pre-commit-config.yaml", "repos: []")
+	testRepo.GitExec("add", ".pre-commit-config.yaml")
+	testRepo.GitExec("commit", "-m", "Add pre-commit config")
+	testRepo.AddRemote("origin", "https://github.com/example/repo.git")
+	testRepo.CreateRemoteTrackingBranch("origin", "main")
+	testRepo.SetUpstream("origin", "main")
+
+	// Stage a change so the lint has something to check
+	testRepo.CreateFile("staged.txt", "staged content")
+	testRepo.GitExec("add", "staged.txt")
+
+	testRepo.InDir(func() {
+		// Install a fake prek that modifies fixme.txt (simulating a linter autofix)
+		script := "#!/bin/sh\necho 'linter fixed content' > fixme.txt\nexit 0\n"
+		fakeBin := installFakeLintCommand(t, script)
+		origPath := os.Getenv("PATH")
+		os.Setenv("PATH", fakeBin+":"+origPath)
+		defer os.Setenv("PATH", origPath)
+
+		args := ParsedArgs{
+			AllFiles:   false,
+			Stream:     false,
+			CheckNames: []string{},
+		}
+
+		err := Lint(args)
+		if err != nil {
+			t.Fatalf("Lint returned unexpected error: %v", err)
+		}
+
+		// The linter fixup should be present in the worktree
+		content, readErr := os.ReadFile("fixme.txt")
+		if readErr != nil {
+			t.Fatalf("Failed to read fixme.txt: %v", readErr)
+		}
+		if !strings.Contains(string(content), "linter fixed content") {
+			t.Errorf("Expected linter fixup to be preserved, got: %q", string(content))
+		}
+	})
+}
+
+// installFakeLintCommand creates a temporary directory with a fake "prek" script
+// and returns the directory path (to be prepended to PATH).
+func installFakeLintCommand(t *testing.T, script string) string {
+	t.Helper()
+	dir := t.TempDir()
+	fakePath := filepath.Join(dir, "prek")
+	if err := os.WriteFile(fakePath, []byte(script), 0755); err != nil {
+		t.Fatalf("Failed to write fake prek: %v", err)
+	}
+	return dir
 }
 
 // TestLintCommand tests that lintCommand returns a valid command name
