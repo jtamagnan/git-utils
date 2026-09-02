@@ -261,7 +261,7 @@ func Review(args ParsedArgs) error {
 		}
 	}
 
-	fmt.Printf("PR URL: %s\n", *githubPR.HTMLURL)
+	fmt.Printf("PR-URL: %s\n", *githubPR.HTMLURL)
 
 	//
 	// Clean exit to avoid any cleanup that might interfere with the PR

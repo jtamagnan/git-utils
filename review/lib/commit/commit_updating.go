@@ -58,7 +58,7 @@ func UpdateMultipleCommitsWithPRURLs(repo *git.Repository, upstreamBranch string
 	// Build a map of hash -> new message for each commit that needs updating
 	var commitsToUpdate []rewordEntry
 
-	prURLRegex := regexp.MustCompile(`(?m)^\s*PR URL:\s*(https://github\.com/[^\s]+)?\s*$`)
+	prURLRegex := regexp.MustCompile(`(?m)^\s*PR[ -]URL:\s*(https://github\.com/[^\s]+)?\s*$`)
 	cleanupNewlines := regexp.MustCompile(`\n\n+`)
 
 	for _, u := range updates {
@@ -71,7 +71,7 @@ func UpdateMultipleCommitsWithPRURLs(repo *git.Repository, upstreamBranch string
 		cleaned := prURLRegex.ReplaceAllString(currentMessage, "")
 		cleaned = cleanupNewlines.ReplaceAllString(cleaned, "\n\n")
 		cleaned = strings.TrimSpace(cleaned)
-		newMessage := cleaned + "\n\nPR URL: " + u.PRURL
+		newMessage := cleaned + "\n\nPR-URL: " + u.PRURL
 
 		if newMessage == strings.TrimSpace(currentMessage) {
 			continue // already up to date

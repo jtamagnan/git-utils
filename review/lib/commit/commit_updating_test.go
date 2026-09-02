@@ -59,8 +59,8 @@ func TestUpdateCommitMessageWithPRURL(t *testing.T) {
 		}
 
 		// Check that PR URL was added
-		if !strings.Contains(fullMessage, "PR URL: "+prURL) {
-			t.Errorf("PR URL not found in commit message. Got: %q", fullMessage)
+		if !strings.Contains(fullMessage, "PR-URL: "+prURL) {
+			t.Errorf("PR-URL not found in commit message. Got: %q", fullMessage)
 		}
 
 		// Check that original message is still there
@@ -112,8 +112,8 @@ func TestUpdateCommitMessageSingleCommit(t *testing.T) {
 		}
 
 		// Check that PR URL was added
-		if !strings.Contains(fullMessage, "PR URL: "+prURL) {
-			t.Errorf("PR URL not found in commit message. Got: %q", fullMessage)
+		if !strings.Contains(fullMessage, "PR-URL: "+prURL) {
+			t.Errorf("PR-URL not found in commit message. Got: %q", fullMessage)
 		}
 
 		// Check that original message is still there
@@ -158,9 +158,9 @@ func TestUpdateCommitMessageNoDuplicates(t *testing.T) {
 		}
 
 		// Count occurrences of PR URL - should only be one
-		count := strings.Count(fullMessage, "PR URL: "+prURL)
+		count := strings.Count(fullMessage, "PR-URL: "+prURL)
 		if count != 1 {
-			t.Errorf("Expected PR URL to appear once, found %d times in: %q", count, fullMessage)
+			t.Errorf("Expected PR-URL to appear once, found %d times in: %q", count, fullMessage)
 		}
 	})
 }
@@ -350,8 +350,8 @@ func TestUpdateCommitMessageWithLongAbbrev(t *testing.T) {
 			t.Fatalf("Failed to get commit message: %v", err)
 		}
 
-		if !strings.Contains(fullMessage, "PR URL: "+prURL) {
-			t.Errorf("PR URL not found in oldest commit message with long abbrev. Got: %q", fullMessage)
+		if !strings.Contains(fullMessage, "PR-URL: "+prURL) {
+			t.Errorf("PR-URL not found in oldest commit message with long abbrev. Got: %q", fullMessage)
 		}
 		if !strings.Contains(fullMessage, "First feature commit") {
 			t.Errorf("Original commit message lost. Got: %q", fullMessage)
@@ -406,15 +406,15 @@ func TestUpdateCommitMessageReplaceSentinel(t *testing.T) {
 			t.Fatalf("Failed to get commit message: %v", err)
 		}
 
-		// Should contain the new PR URL
-		if !strings.Contains(fullMessageAfter, "PR URL: "+prURL) {
-			t.Errorf("PR URL not found in commit message. Got: %q", fullMessageAfter)
+		// Should contain the new PR URL (stamped with PR-URL: format)
+		if !strings.Contains(fullMessageAfter, "PR-URL: "+prURL) {
+			t.Errorf("PR-URL not found in commit message. Got: %q", fullMessageAfter)
 		}
 
-		// Should NOT have a bare "PR URL:" line (the sentinel should be replaced)
-		count := strings.Count(fullMessageAfter, "PR URL:")
+		// Should NOT have any bare "PR URL:" or "PR-URL:" line (the sentinel should be replaced)
+		count := strings.Count(fullMessageAfter, "PR-URL:")
 		if count != 1 {
-			t.Errorf("Expected exactly 1 'PR URL:' line, found %d in: %q", count, fullMessageAfter)
+			t.Errorf("Expected exactly 1 'PR-URL:' line, found %d in: %q", count, fullMessageAfter)
 		}
 
 		// Original message should still be there

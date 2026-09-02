@@ -275,6 +275,20 @@ func TestExtractPRInfo(t *testing.T) {
 			wantsPR:     true,
 		},
 		{
+			name:        "PR-URL format with link",
+			message:     "Fix bug\n\nPR-URL: https://github.com/owner/repo/pull/99",
+			expectedURL: "https://github.com/owner/repo/pull/99",
+			expectedNum: 99,
+			wantsPR:     true,
+		},
+		{
+			name:        "PR-URL bare sentinel",
+			message:     "New feature\n\nPR-URL:",
+			expectedURL: "",
+			expectedNum: 0,
+			wantsPR:     true,
+		},
+		{
 			name:        "No marker at all",
 			message:     "Just a commit\n\nSome description",
 			expectedURL: "",

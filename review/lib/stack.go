@@ -86,7 +86,7 @@ func Stack(args StackParsedArgs) error {
 	fmt.Printf("Found %d commits in stack\n", len(commits))
 
 	// Group commits: use sentinel-based grouping if any commit has a
-	// "PR URL:" line, otherwise default to one group per commit.
+	// "PR-URL:" (or legacy "PR URL:") line, otherwise default to one group per commit.
 	var groups []stackGroup
 	hasAnySentinel := false
 	hasExistingPR := false
@@ -117,7 +117,7 @@ func Stack(args StackParsedArgs) error {
 
 // groupCommits organizes commits into groups based on PR ownership.
 // Each commit with a PR URL starts a new group. Commits with a bare
-// "PR URL:" sentinel (WantsPR but no PRNum) also start a new group
+// "PR-URL:" sentinel (WantsPR but no PRNum) also start a new group
 // that will get a new PR. Commits without any PR marker join the
 // previous group (or form a new group if they appear before any PR).
 func groupCommits(commits []pr.StackCommitPR, defaultBase string) []stackGroup {
@@ -132,7 +132,7 @@ func groupCommits(commits []pr.StackCommitPR, defaultBase string) []stackGroup {
 				prURL:    c.PRURL,
 			})
 		} else if c.WantsPR {
-			// Bare "PR URL:" sentinel - start a new group that needs a new PR
+			// Bare "PR-URL:" sentinel - start a new group that needs a new PR
 			groups = append(groups, stackGroup{
 				commits: []pr.StackCommitPR{c},
 			})

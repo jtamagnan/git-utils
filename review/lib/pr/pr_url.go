@@ -35,7 +35,7 @@ type StackCommitPR struct {
 	Summary  string
 	PRURL    string // empty if no PR URL found
 	PRNum    int    // 0 if no PR URL found
-	WantsPR  bool   // true if commit has a bare "PR URL:" sentinel (requests a new PR)
+	WantsPR  bool   // true if commit has a bare "PR-URL:" sentinel (requests a new PR)
 }
 
 // DetectAllPRs returns per-commit PR info for all commits between parent and HEAD (oldest first)
@@ -63,15 +63,15 @@ func DetectAllPRs(repo *git.Repository, upstreamBranch string) ([]StackCommitPR,
 	return results, nil
 }
 
-// prURLWithLinkRegex matches "PR URL:" followed by a GitHub PR link
-var prURLWithLinkRegex = regexp.MustCompile(`PR URL:\s*(https://github\.com/[^/]+/[^/]+/pull/(\d+))`)
+// prURLWithLinkRegex matches "PR URL:" or "PR-URL:" followed by a GitHub PR link
+var prURLWithLinkRegex = regexp.MustCompile(`PR[ -]URL:\s*(https://github\.com/[^/]+/[^/]+/pull/(\d+))`)
 
-// prURLSentinelRegex matches a bare "PR URL:" line (with optional trailing whitespace but no URL)
-var prURLSentinelRegex = regexp.MustCompile(`(?m)^PR URL:\s*$`)
+// prURLSentinelRegex matches a bare "PR URL:" or "PR-URL:" line (with optional trailing whitespace but no URL)
+var prURLSentinelRegex = regexp.MustCompile(`(?m)^PR[ -]URL:\s*$`)
 
 // extractPRInfo extracts PR URL, number, and whether the commit wants a new PR.
 // Returns (url, number, wantsPR):
-//   - Has PR URL:   ("https://...", 123, true)
+//   - Has PR-URL:   ("https://...", 123, true)
 //   - Bare sentinel: ("", 0, true)
 //   - No marker:     ("", 0, false)
 func extractPRInfo(message string) (string, int, bool) {
@@ -95,7 +95,7 @@ func extractPRURLAndNumber(message string) (string, int) {
 	return url, num
 }
 
-// extractPRNumber extracts the PR number from a commit message containing "PR URL: ..."
+// extractPRNumber extracts the PR number from a commit message containing "PR-URL: ..." or "PR URL: ..."
 // Returns 0 if no valid PR URL is found
 func extractPRNumber(message string) int {
 	_, num := extractPRURLAndNumber(message)
