@@ -358,6 +358,17 @@ func updateStack(repo *git.Repository, upstream string, repoInfo *git.Repository
 				return fmt.Errorf("PR #%d has no head branch information", group.prNumber)
 			}
 			groups[i].branchName = branchName
+
+			// Push updated commits to this branch NOW so that any new PRs
+			// created later in this loop see an up-to-date base branch,
+			// avoiding large diffs from stale remote branches.
+			lastCommit := group.commits[len(group.commits)-1]
+			fmt.Printf("Pushing to %s (PR #%d)\n", branchName, group.prNumber)
+			_, err = repo.GitExec("push", "--force", upstream, fmt.Sprintf("%s:refs/heads/%s", lastCommit.Hash, branchName))
+			if err != nil {
+				return fmt.Errorf("error pushing to %s: %v", branchName, err)
+			}
+
 			previousBase = branchName
 		} else {
 			// Orphan group - create a new PR
