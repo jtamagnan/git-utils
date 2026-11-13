@@ -597,6 +597,67 @@ func TestGitConfigGlobalIntegration(t *testing.T) {
 	t.Log("Global git config integration test passed - global and local precedence working correctly")
 }
 
+func TestNoVerifyFlagNotOverwrittenBySubcommand(t *testing.T) {
+	// Regression test: SetupStackFlags was overwriting viper's "no-verify"
+	// binding so that it pointed at the stack subcommand's flag instead of
+	// the root command's flag. This caused --no-verify on the root command
+	// to be silently ignored.
+	viper.Reset()
+	InitConfig()
+
+	// Mirror the real command tree in main.go
+	rootCmd := &cobra.Command{Use: "git-review"}
+	SetupFlags(rootCmd)
+
+	stackCmd := &cobra.Command{Use: "stack"}
+	SetupStackFlags(stackCmd)
+	rootCmd.AddCommand(stackCmd)
+
+	// Simulate: git-review --no-verify
+	args := []string{"--no-verify"}
+	rootCmd.SetArgs(args)
+	if err := rootCmd.ParseFlags(args); err != nil {
+		t.Fatalf("Failed to parse flags: %v", err)
+	}
+
+	parsedArgs, err := ParseArgs(rootCmd, []string{})
+	if err != nil {
+		t.Fatalf("ParseArgs failed: %v", err)
+	}
+
+	if !parsedArgs.NoVerify {
+		t.Error("Expected NoVerify to be true when --no-verify is passed on root command")
+	}
+}
+
+func TestNoVerifyFlagWorksOnStackSubcommand(t *testing.T) {
+	viper.Reset()
+	InitConfig()
+
+	rootCmd := &cobra.Command{Use: "git-review"}
+	SetupFlags(rootCmd)
+
+	stackCmd := &cobra.Command{Use: "stack"}
+	SetupStackFlags(stackCmd)
+	rootCmd.AddCommand(stackCmd)
+
+	// Simulate: git-review stack --no-verify
+	args := []string{"--no-verify"}
+	stackCmd.SetArgs(args)
+	if err := stackCmd.ParseFlags(args); err != nil {
+		t.Fatalf("Failed to parse flags: %v", err)
+	}
+
+	parsedArgs, err := ParseStackArgs(stackCmd, []string{})
+	if err != nil {
+		t.Fatalf("ParseStackArgs failed: %v", err)
+	}
+
+	if !parsedArgs.NoVerify {
+		t.Error("Expected NoVerify to be true when --no-verify is passed on stack subcommand")
+	}
+}
+
 // joinNonEmpty joins non-empty strings with separator
 func joinNonEmpty(items []string, sep string) string {
 	var nonEmpty []string

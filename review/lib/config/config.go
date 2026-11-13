@@ -238,6 +238,12 @@ func LoadProjectConfig() {
 
 // ParseArgs converts Viper configuration and command-line flags into ParsedArgs
 func ParseArgs(cmd *cobra.Command, _ []string) (review.ParsedArgs, error) {
+	// Bind flags to viper at parse time (not setup time) so that
+	// subcommand flag bindings don't overwrite root command bindings.
+	for _, flag := range flagConfigs {
+		_ = viper.BindPFlag(flag.Name, cmd.Flags().Lookup(flag.Name))
+	}
+
 	// Viper automatically handles the precedence:
 	// 1. Command-line flags (highest)
 	// 2. Environment variables
@@ -314,6 +320,12 @@ var stackFlagConfigs = []FlagConfig{
 
 // ParseStackArgs converts flags into StackParsedArgs
 func ParseStackArgs(cmd *cobra.Command, _ []string) (review.StackParsedArgs, error) {
+	// Bind flags to viper at parse time (not setup time) so that
+	// subcommand flag bindings don't overwrite root command bindings.
+	for _, flag := range stackFlagConfigs {
+		_ = viper.BindPFlag(flag.Name, cmd.Flags().Lookup(flag.Name))
+	}
+
 	parsedArgs := review.StackParsedArgs{
 		NoVerify:    viper.GetBool("no-verify"),
 		OpenBrowser: viper.GetBool("open-browser"),
@@ -332,7 +344,6 @@ func SetupStackFlags(cmd *cobra.Command) {
 		case "string":
 			cmd.Flags().StringP(flag.Name, flag.Shorthand, flag.Default.(string), flag.Description)
 		}
-		_ = viper.BindPFlag(flag.Name, cmd.Flags().Lookup(flag.Name))
 	}
 }
 
@@ -350,7 +361,5 @@ func SetupFlags(cmd *cobra.Command) {
 			cmd.Flags().StringP(flag.Name, flag.Shorthand, defaultVal, flag.Description)
 		}
 
-		// Bind to viper for automatic precedence handling
-		_ = viper.BindPFlag(flag.Name, cmd.Flags().Lookup(flag.Name))
 	}
 }
