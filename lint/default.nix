@@ -13,7 +13,11 @@ buildGoModule {
   # `replace => ../git` directive in lint/go.mod is honoured.
   env.GOWORK = "off";
 
-  vendorHash = "sha256-Ay7a8XJs4ldZGdILLAQt7VsZHhyX7ZDDzs72JXA9l0s=";
+  # proxyVendor: only third-party modules go in the fixed-output
+  # derivation. Local `replace => ../x` modules are read from src, so
+  # edits to sibling modules are picked up without bumping vendorHash.
+  proxyVendor = true;
+  vendorHash = "sha256-lPnSTqtfwKpRg4XBgUIj0niPzF1PEQDdcZCLOppuMCA=";
 
   # Tests require a git repo to be available.
   doCheck = false;

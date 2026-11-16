@@ -13,7 +13,11 @@ buildGoModule {
   # `replace` directives in review/go.mod are honoured.
   env.GOWORK = "off";
 
-  vendorHash = "sha256-oyHjqrCI6mnuVgPhd9Xgmgl7igw+9Y3Zl9hKNUtElxc=";
+  # proxyVendor: only third-party modules go in the fixed-output
+  # derivation. Local `replace => ../x` modules are read from src, so
+  # edits to sibling modules are picked up without bumping vendorHash.
+  proxyVendor = true;
+  vendorHash = "sha256-ym7FJAlR1NumwDDoXyCSyM68d/OJJnDVrCAES06hnoE=";
 
   # Tests require external dependencies.
   doCheck = false;
