@@ -3,7 +3,8 @@ module github.com/jtamagnan/git-utils/lint
 go 1.24.1
 
 require (
-	github.com/jtamagnan/git-utils/git v0.0.0-20250419211944-8b9d167dc188
+	github.com/jtamagnan/git-utils/git v0.0.0
+	github.com/jtamagnan/git-utils/lint/lib v0.0.0
 	github.com/spf13/cobra v1.9.1
 )
 
@@ -33,3 +34,5 @@ require (
 )
 
 replace github.com/jtamagnan/git-utils/git => ../git
+
+replace github.com/jtamagnan/git-utils/lint/lib => ./lib
