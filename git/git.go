@@ -27,6 +27,7 @@ func GetRepository() (*Repository, error) {
 		".",
 		&gogit.PlainOpenOptions{
 			DetectDotGit: true,
+			EnableDotGitCommonDir: true,
 		},
 	)
 	if err != nil {
